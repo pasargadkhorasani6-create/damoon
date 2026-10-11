@@ -1,0 +1,3 @@
+# signal_publisher.py فقط به کتابخانه‌ی استاندارد پایتون نیاز دارد.
+# mt5_bridge.py روی ویندوز به پکیج رسمی MetaTrader5 نیاز دارد:
+MetaTrader5>=5.0.45; sys_platform == "win32"

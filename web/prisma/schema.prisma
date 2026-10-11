@@ -59,3 +59,71 @@ model OtpCode {
 
   @@index([phone, purpose, createdAt])
 }
+
+// ---------------------------------------------------------------- سیگنال‌ها
+
+enum Direction {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  STOP
+  LIMIT
+}
+
+enum SignalStatus {
+  PENDING // سفارش شرطی ثبت شده، هنوز فعال نشده
+  ACTIVE // سفارش فعال شده (پوزیشن باز)
+  TP_HIT // بسته‌شده با حد سود
+  SL_HIT // بسته‌شده با حد ضرر
+  CLOSED // بسته‌شده دستی/سایر
+  CANCELED // سفارش شرطی فعال نشد یا لغو شد
+}
+
+model Signal {
+  id                String       @id @default(cuid())
+  // شناسه‌ی ربات (مثلاً شماره‌حساب-تیکت)؛ ارسال تکراری idempotent است
+  externalId        String       @unique
+  source            String
+  symbol            String
+  direction         Direction
+  orderType         OrderType
+  timeframe         String?
+  digits            Int          @default(5)
+  entry             Float
+  stopLoss          Float
+  takeProfit        Float?
+  initialStopLoss   Float
+  initialTakeProfit Float?
+  status            SignalStatus @default(PENDING)
+  signalAt          DateTime
+  fillPrice         Float?
+  activatedAt       DateTime?
+  exitPrice         Float?
+  closedAt          DateTime?
+  // نتیجه بر حسب R، فقط توسط سرور از قیمت‌های گزارش‌شده‌ی ربات محاسبه می‌شود
+  resultR           Float?
+  cancelReason      String?
+  comment           String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  events SignalEvent[]
+
+  @@index([status])
+  @@index([signalAt])
+  @@index([closedAt])
+}
+
+model SignalEvent {
+  id        String   @id @default(cuid())
+  signalId  String
+  signal    Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([signalId, createdAt])
+}

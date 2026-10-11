@@ -18,6 +18,9 @@ const schema = z.object({
   MELIPAYAMAK_BODY_ID: z.string().optional().default(""),
   MELIPAYAMAK_FROM: z.string().optional().default(""),
   SMS_DRY_RUN: bool,
+
+  // کلیدهای API ربات: "keyId:secret" و با کاما برای چند کلید (چرخش کلید)
+  BOT_API_KEYS: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof schema>;

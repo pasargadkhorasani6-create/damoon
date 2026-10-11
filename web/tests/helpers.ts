@@ -15,3 +15,52 @@ export async function makeUser(over: Partial<{ email: string; phone: string; pas
     },
   });
 }
+
+import { randomBytes } from "node:crypto";
+import { signRequest } from "@/lib/bot/hmac";
+
+export const TEST_BOT_KEY = "testbot";
+export const TEST_BOT_SECRET = "test-bot-secret-0123456789abcdef0123456789abcdef";
+
+/** درخواست امضاشده‌ی ربات می‌سازد (مانند signal_publisher.py) */
+export function botRequest(
+  path: string,
+  body: unknown,
+  opts: { method?: string; secret?: string; ts?: number; nonce?: string; key?: string } = {},
+) {
+  const method = opts.method ?? "POST";
+  const raw = body === undefined ? "" : JSON.stringify(body);
+  const ts = String(opts.ts ?? Math.floor(Date.now() / 1000));
+  const nonce = opts.nonce ?? randomBytes(12).toString("hex");
+  const sig = signRequest(opts.secret ?? TEST_BOT_SECRET, ts, nonce, method, path, raw);
+  return new Request(`http://localhost:3000${path}`, {
+    method,
+    body: method === "GET" ? undefined : raw,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": opts.key ?? TEST_BOT_KEY,
+      "x-timestamp": ts,
+      "x-nonce": nonce,
+      "x-signature": sig,
+    },
+  });
+}
+
+let ticket = 1000;
+export function newSignalEvent(over: Record<string, unknown> = {}) {
+  ticket++;
+  return {
+    type: "signal.new",
+    externalId: `acc1-${ticket}`,
+    symbol: "XAUUSD.r",
+    direction: "BUY",
+    orderType: "STOP",
+    entry: 2400,
+    stopLoss: 2395,
+    takeProfit: 2405,
+    timeframe: "M5",
+    digits: 2,
+    signalAt: Math.floor(Date.now() / 1000),
+    ...over,
+  };
+}
