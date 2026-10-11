@@ -38,6 +38,9 @@ const schema = z.object({
   // آدرس API تلگرام؛ برای سرور ایران می‌توان یک relay (مثلاً Cloudflare Worker) گذاشت
   TELEGRAM_API_BASE: z.url().default("https://api.telegram.org"),
 
+  // فرض ریسک ثابت هر معامله برای نمایش درصدی (برابر RiskPct ربات)
+  PERFORMANCE_RISK_PCT: z.coerce.number().positive().max(10).default(0.5),
+
   USDT_PAYMENT_TTL_MIN: z.coerce.number().int().min(10).max(24 * 60).default(60),
 });
 

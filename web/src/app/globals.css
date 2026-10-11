@@ -22,7 +22,6 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-ink);
-  font-feature-settings: "ss01";
 }
 
 /* اعداد قیمت همیشه چپ‌به‌راست نمایش داده شوند */
