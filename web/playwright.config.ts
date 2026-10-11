@@ -9,6 +9,7 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
  */
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   workers: 1,
   timeout: 60_000,
   use: {
@@ -20,5 +21,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 60_000,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
   },
 });

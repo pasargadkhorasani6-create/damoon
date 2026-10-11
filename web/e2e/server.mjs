@@ -11,10 +11,17 @@ env.NODE_ENV = "production";
 
 mkdirSync("e2e/.out", { recursive: true });
 const log = createWriteStream("e2e/.out/server.log", { flags: "w" });
-const child = spawn("npx", ["next", "start", "-p", port], { env, stdio: ["ignore", "pipe", "pipe"] });
+// detached: گروه پروسس جدا تا با پایان تست، next-server هم بسته شود
+const child = spawn("node_modules/.bin/next", ["start", "-p", port], { env, stdio: ["ignore", "pipe", "pipe"], detached: true });
 child.stdout.on("data", (d) => (process.stdout.write(d), log.write(d)));
 child.stderr.on("data", (d) => (process.stderr.write(d), log.write(d)));
-const stop = () => child.kill("SIGTERM");
+const stop = () => {
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    child.kill("SIGTERM");
+  }
+};
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
 child.on("exit", (c) => process.exit(c ?? 0));

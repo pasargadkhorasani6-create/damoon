@@ -29,7 +29,8 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  sessions Session[]
+  sessions      Session[]
+  subscriptions Subscription[]
 }
 
 model Session {
@@ -126,4 +127,28 @@ model SignalEvent {
   createdAt DateTime @default(now())
 
   @@index([signalId, createdAt])
+}
+
+// ---------------------------------------------------------------- اشتراک
+
+enum SubscriptionSource {
+  PAYMENT
+  ADMIN
+}
+
+model Subscription {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planSlug  String
+  startsAt  DateTime
+  endsAt    DateTime
+  source    SubscriptionSource
+  // در صورت لغو توسط ادمین
+  revokedAt DateTime?
+  note      String?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, endsAt])
+  @@index([endsAt])
 }
