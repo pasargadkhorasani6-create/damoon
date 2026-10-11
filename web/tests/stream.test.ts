@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSignalStream } from "@/lib/signals/stream";
-import { publishRealtime } from "@/lib/realtime";
 import { newSignalEvent, botRequest, makeUser } from "./helpers";
 import { createSession, SESSION_COOKIE } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -48,9 +47,9 @@ describe("SSE signal stream", () => {
 
 describe("signals API access control", () => {
   it("401 without session, 403 without subscription, 200 with subscription", async () => {
-    let token: string | undefined;
+    const jar: { token?: string } = {};
     vi.doMock("next/headers", () => ({
-      cookies: async () => ({ get: (n: string) => (n === SESSION_COOKIE && token ? { value: token } : undefined) }),
+      cookies: async () => ({ get: (n: string) => (n === SESSION_COOKIE && jar.token ? { value: jar.token } : undefined) }),
       headers: async () => new Headers(),
     }));
     const { GET } = await import("@/app/api/signals/route");
@@ -58,7 +57,7 @@ describe("signals API access control", () => {
 
     expect((await GET(req())).status).toBe(401);
     const u = await makeUser();
-    token = (await createSession(u.id)).token;
+    jar.token = (await createSession(u.id)).token;
     expect((await GET(req())).status).toBe(403);
     await db.subscription.create({
       data: { userId: u.id, planSlug: "monthly", startsAt: new Date(), endsAt: new Date(Date.now() + 86_400_000), source: "ADMIN" },
