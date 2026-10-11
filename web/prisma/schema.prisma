@@ -31,6 +31,7 @@ model User {
 
   sessions      Session[]
   subscriptions Subscription[]
+  payments      Payment[]
 }
 
 model Session {
@@ -144,6 +145,8 @@ model Subscription {
   startsAt  DateTime
   endsAt    DateTime
   source    SubscriptionSource
+  paymentId String?            @unique
+  payment   Payment?           @relation(fields: [paymentId], references: [id])
   // در صورت لغو توسط ادمین
   revokedAt DateTime?
   note      String?
@@ -151,4 +154,64 @@ model Subscription {
 
   @@index([userId, endsAt])
   @@index([endsAt])
+}
+
+// ---------------------------------------------------------------- پلن و پرداخت
+
+model Plan {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  days           Int
+  priceToman     Int
+  // قیمت تتر به سنت (۱۵.۰۰ USDT = 1500)
+  priceUsdtCents Int
+  active         Boolean   @default(true)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  payments       Payment[]
+}
+
+enum PaymentProvider {
+  ZARINPAL
+  USDT_TRC20
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+model Payment {
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            Plan            @relation(fields: [planId], references: [id])
+  provider        PaymentProvider
+  status          PaymentStatus   @default(PENDING)
+  // زرین‌پال: ریال | تتر: واحد پایه‌ی قرارداد (۶ رقم اعشار؛ 15.37 USDT = 15370000)
+  amount          BigInt
+  currency        String
+  // زرین‌پال
+  authority       String?         @unique
+  refId           String?
+  cardPan         String?
+  // تتر
+  txHash          String?         @unique
+  payerAddress    String?
+  termsAcceptedAt DateTime
+  expiresAt       DateTime
+  paidAt          DateTime?
+  failReason      String?
+  raw             Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  subscription    Subscription?
+
+  @@index([userId, createdAt])
+  @@index([status, provider, expiresAt])
 }

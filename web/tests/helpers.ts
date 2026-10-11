@@ -64,3 +64,13 @@ export function newSignalEvent(over: Record<string, unknown> = {}) {
     ...over,
   };
 }
+
+export async function seedPlans() {
+  const { db } = await import("@/lib/db");
+  await db.plan.createMany({
+    data: [
+      { slug: "monthly", title: "ماهانه", days: 30, priceToman: 1_500_000, priceUsdtCents: 1500, sortOrder: 1 },
+      { slug: "quarterly", title: "سه‌ماهه", days: 90, priceToman: 3_900_000, priceUsdtCents: 3900, sortOrder: 2 },
+    ],
+  });
+}

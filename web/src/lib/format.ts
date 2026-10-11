@@ -18,3 +18,8 @@ const df = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", year: "nu
 
 export const faDateTime = (d: Date | string) => dtf.format(new Date(d));
 export const faDate = (d: Date | string) => df.format(new Date(d));
+
+/** تعداد روزهای باقی‌مانده تا تاریخ (گرد به بالا) */
+export function daysUntil(d: Date | null, now = Date.now()): number {
+  return d ? Math.max(0, Math.ceil((d.getTime() - now) / 86_400_000)) : 0;
+}

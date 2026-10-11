@@ -21,6 +21,17 @@ const schema = z.object({
 
   // کلیدهای API ربات: "keyId:secret" و با کاما برای چند کلید (چرخش کلید)
   BOT_API_KEYS: z.string().optional().default(""),
+
+  // پراکسی خروجی برای سرویس‌های خارجی که از سرور ایران در دسترس نیستند (TronGrid، تلگرام)
+  OUTBOUND_PROXY_URL: z.string().optional().default(""),
+
+  ZARINPAL_MERCHANT_ID: z.string().optional().default(""),
+  ZARINPAL_SANDBOX: bool,
+
+  USDT_TRC20_ADDRESS: z.string().optional().default(""),
+  TRONGRID_BASE_URL: z.url().default("https://api.trongrid.io"),
+  TRONGRID_API_KEY: z.string().optional().default(""),
+  USDT_PAYMENT_TTL_MIN: z.coerce.number().int().min(10).max(24 * 60).default(60),
 });
 
 export type Env = z.infer<typeof schema>;

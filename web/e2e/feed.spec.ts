@@ -1,23 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { botPost, giveSubscription } from "./db";
-import { otpMark, readOtp, uniquePhone } from "./utils";
-
-async function register(page: Page) {
-  const phone = uniquePhone();
-  const email = `feed-${Date.now()}@example.com`;
-  await page.goto("/register");
-  await page.getByLabel("نام و نام خانوادگی").fill("مشترک تست");
-  await page.getByLabel("ایمیل").fill(email);
-  await page.getByLabel("شماره موبایل").fill(phone);
-  await page.getByLabel(/رمز عبور/).fill("feed-pass-1234");
-  await page.getByRole("checkbox").check();
-  const mark = otpMark(phone);
-  await page.getByRole("button", { name: "دریافت کد تأیید" }).click();
-  await page.getByLabel("کد تأیید").fill(await readOtp(phone, mark));
-  await page.getByRole("button", { name: "تأیید و ساخت حساب" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  return email;
-}
+import { register } from "./utils";
 
 test("non-subscriber is blocked; subscriber receives signals live without reload", async ({ page, baseURL }) => {
   const email = await register(page);
