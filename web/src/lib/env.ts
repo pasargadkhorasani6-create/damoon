@@ -31,6 +31,13 @@ const schema = z.object({
   USDT_TRC20_ADDRESS: z.string().optional().default(""),
   TRONGRID_BASE_URL: z.url().default("https://api.trongrid.io"),
   TRONGRID_API_KEY: z.string().optional().default(""),
+  TELEGRAM_BOT_TOKEN: z.string().optional().default(""),
+  TELEGRAM_BOT_USERNAME: z.string().optional().default(""),
+  // شناسه‌ی عددی کانال خصوصی (مثلاً -1001234567890)؛ ربات باید ادمین کانال باشد
+  TELEGRAM_CHANNEL_ID: z.string().optional().default(""),
+  // آدرس API تلگرام؛ برای سرور ایران می‌توان یک relay (مثلاً Cloudflare Worker) گذاشت
+  TELEGRAM_API_BASE: z.url().default("https://api.telegram.org"),
+
   USDT_PAYMENT_TTL_MIN: z.coerce.number().int().min(10).max(24 * 60).default(60),
 });
 

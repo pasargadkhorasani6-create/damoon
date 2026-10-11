@@ -26,12 +26,22 @@ model User {
   passwordHash String
   role         Role      @default(USER)
   bannedAt     DateTime?
+
+  // تلگرام
+  telegramId        BigInt?   @unique
+  telegramUsername  String?
+  telegramLinkedAt  DateTime?
+  // دریافت سیگنال در پیام خصوصی ربات
+  telegramDm        Boolean   @default(true)
+  // عضو کانال خصوصی (پس از تأیید درخواست عضویت)
+  telegramInChannel Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   sessions      Session[]
   subscriptions Subscription[]
   payments      Payment[]
+  telegramLinks TelegramLinkCode[]
 }
 
 model Session {
@@ -147,6 +157,8 @@ model Subscription {
   source    SubscriptionSource
   paymentId String?            @unique
   payment   Payment?           @relation(fields: [paymentId], references: [id])
+  // یادآوری پایان اشتراک ارسال شده
+  reminderSentAt DateTime?
   // در صورت لغو توسط ادمین
   revokedAt DateTime?
   note      String?
@@ -214,4 +226,27 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([status, provider, expiresAt])
+}
+
+// ---------------------------------------------------------------- تلگرام
+
+model TelegramLinkCode {
+  codeHash  String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** پیام‌های ارسال‌شده برای هر سیگنال (برای ویرایش/پاسخ هنگام تغییر وضعیت) */
+model TelegramMessage {
+  id        String   @id @default(cuid())
+  signalId  String
+  chatId    BigInt
+  messageId Int
+  createdAt DateTime @default(now())
+
+  @@unique([signalId, chatId])
 }
