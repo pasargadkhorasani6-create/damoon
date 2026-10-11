@@ -22,6 +22,7 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bullmq": "^6.3.12",
+    "dotenv": "^18.0.7",
     "ioredis": "^6.0.0",
     "next": "16.4.0",
     "pg": "^8.23.1",
@@ -30,6 +31,7 @@
     "react-dom": "19.3.0",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "tsx": "^4.23.15",
     "undici": "^7.30.0",
     "vazirmatn": "^33.0.3",
     "zod": "^4.6.5"
@@ -41,11 +43,9 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv": "^18.0.7",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
-    "tsx": "^4.23.15",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^5.0.3"

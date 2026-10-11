@@ -1,0 +1,107 @@
+# دیپلوی روی VPS:  docker compose up -d --build
+# متغیرها از فایل .env کنار همین فایل خوانده می‌شوند (نمونه: .env.production.example)
+# اگر Docker Hub در دسترس نیست، ایمیج‌ها را با *_IMAGE در .env از میرور بگیرید (README)
+name: damoon
+
+x-app-env: &app-env
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://${POSTGRES_USER:-damoon}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-damoon}
+    REDIS_URL: redis://redis:6379/0
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-damoon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-damoon}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 10
+
+  # اجرای migrationها پیش از بالا آمدن سایت (یک‌بار اجرا و خروج)
+  migrate:
+    build: { context: ./web, target: worker, args: { NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org/}" } }
+    image: damoon-worker
+    <<: *app-env
+    command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  app:
+    build: { context: ./web, target: app, args: { NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org/}" } }
+    image: damoon-app
+    <<: *app-env
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    image: damoon-worker
+    <<: *app-env
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    volumes:
+      - ./deploy/nginx/templates:/etc/nginx/templates:ro
+      - certbot-www:/var/www/certbot:ro
+      - letsencrypt:/etc/letsencrypt:ro
+    depends_on: [app]
+    # هر ۶ ساعت reload برای اعمال گواهی تمدیدشده
+    command: ["/bin/sh", "-c", "while :; do sleep 6h; nginx -s reload; done & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+
+  certbot:
+    image: ${CERTBOT_IMAGE:-certbot/certbot:latest}
+    restart: unless-stopped
+    volumes:
+      - certbot-www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"]
+
+  # پشتیبان روزانه‌ی دیتابیس (۱۴ نسخه‌ی آخر نگه داشته می‌شود) در ./backups
+  backup:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-damoon}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-damoon}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+    entrypoint: ["/bin/sh", "-c", "while :; do pg_dump -Fc -f /backups/damoon-$$(date +%Y%m%d-%H%M).dump && ls -1t /backups/*.dump | tail -n +15 | xargs -r rm --; sleep 86400; done"]
+
+volumes:
+  pgdata:
+  redisdata:
+  certbot-www:
+  letsencrypt:
