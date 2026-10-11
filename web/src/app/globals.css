@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-vazirmatn), Tahoma, sans-serif;
+  --color-bg: #0b1120;
+  --color-surface: #111a2e;
+  --color-surface-2: #17223a;
+  --color-line: #24314d;
+  --color-ink: #e6ebf5;
+  --color-muted: #94a3b8;
+  --color-brand: #f5b942;
+  --color-brand-ink: #1a1405;
+  --color-up: #22c55e;
+  --color-down: #ef4444;
+  --color-info: #38bdf8;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-feature-settings: "ss01";
+}
+
+/* اعداد قیمت همیشه چپ‌به‌راست نمایش داده شوند */
+.ltr-num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-surface p-6;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-brand-ink hover:brightness-110;
+}
+@utility btn-ghost {
+  @apply btn border border-line text-ink hover:bg-surface-2;
+}
+@utility input {
+  @apply w-full rounded-xl border border-line bg-bg px-4 py-2.5 text-sm text-ink outline-none placeholder:text-muted/60 focus:border-brand;
+}
+@utility label {
+  @apply mb-1.5 block text-sm text-muted;
+}
+
+@layer components {
+  .prose-fa h2 {
+    @apply mt-10 mb-3 text-xl font-bold text-ink;
+  }
+  .prose-fa h3 {
+    @apply mt-6 mb-2 text-lg font-semibold text-ink;
+  }
+  .prose-fa p,
+  .prose-fa li {
+    @apply leading-8 text-ink/85;
+  }
+  .prose-fa ul {
+    @apply list-disc space-y-1 pr-6;
+  }
+}
