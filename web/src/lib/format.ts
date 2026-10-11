@@ -23,3 +23,10 @@ export const faDate = (d: Date | string) => df.format(new Date(d));
 export function daysUntil(d: Date | null, now = Date.now()): number {
   return d ? Math.max(0, Math.ceil((d.getTime() - now) / 86_400_000)) : 0;
 }
+
+export function subscriptionState(s: { startsAt: Date; endsAt: Date; revokedAt: Date | null }, now = Date.now()) {
+  if (s.revokedAt) return { label: "لغو شده", current: false };
+  if (s.endsAt.getTime() < now) return { label: "منقضی", current: false };
+  if (s.startsAt.getTime() > now) return { label: "آینده", current: true };
+  return { label: "فعال", current: true };
+}

@@ -250,3 +250,40 @@ model TelegramMessage {
 
   @@unique([signalId, chatId])
 }
+
+// ---------------------------------------------------------------- ادمین
+
+/** همه‌ی اقدامات ادمین ثبت می‌شود */
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  target    String?
+  data      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([target])
+}
+
+enum BroadcastAudience {
+  ACTIVE // مشترکین فعال
+  ALL // همه‌ی کاربران
+}
+
+model Broadcast {
+  id            String            @id @default(cuid())
+  text          String
+  audience      BroadcastAudience
+  viaTelegramDm Boolean
+  viaChannel    Boolean
+  viaSite       Boolean
+  recipients    Int               @default(0)
+  createdById   String
+  createdAt     DateTime          @default(now())
+  // نمایش در پنل کاربران تا این زمان
+  siteUntil     DateTime?
+
+  @@index([createdAt])
+}

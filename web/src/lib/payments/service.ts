@@ -29,7 +29,7 @@ async function getPlan(slug: string) {
  * پرداخت را PAID و اشتراک را فعال می‌کند. اتمیک و idempotent:
  * فقط یک فراخوانی موفق می‌شود حتی اگر callback و کرون هم‌زمان اجرا شوند.
  */
-export async function finalizePayment(paymentId: string, data: Prisma.PaymentUpdateManyMutationInput, allowFrom: ("PENDING" | "EXPIRED")[] = ["PENDING"]) {
+export async function finalizePayment(paymentId: string, data: Prisma.PaymentUpdateManyMutationInput, allowFrom: ("PENDING" | "EXPIRED" | "FAILED")[] = ["PENDING"]) {
   const result = await db.$transaction(async (tx) => {
     const updated = await tx.payment.updateMany({
       where: { id: paymentId, status: { in: allowFrom } },

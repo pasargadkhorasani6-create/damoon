@@ -2,17 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/current";
 import { getActiveSubscription, subscriptionEndsAt } from "@/lib/subscription";
-import { daysUntil, fa, faDate } from "@/lib/format";
+import { daysUntil, fa, faDate, faDateTime } from "@/lib/format";
+import { activeAnnouncements } from "@/lib/admin/service";
 
 export const metadata: Metadata = { title: "پنل کاربری" };
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [active, endsAt] = await Promise.all([getActiveSubscription(user.id), subscriptionEndsAt(user.id)]);
+  const [active, endsAt, news] = await Promise.all([getActiveSubscription(user.id), subscriptionEndsAt(user.id), activeAnnouncements(user)]);
   const days = daysUntil(endsAt);
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">سلام {user.name}</h1>
+      {news.map((n) => (
+        <div key={n.id} className="card border-info/40 !p-4" data-testid="announcement">
+          <div className="mb-1 text-xs text-info">اطلاعیه · {faDateTime(n.createdAt)}</div>
+          <p className="whitespace-pre-line text-sm leading-7">{n.text}</p>
+        </div>
+      ))}
       {active && endsAt ? (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="card">

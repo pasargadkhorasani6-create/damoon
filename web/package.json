@@ -14,7 +14,8 @@
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
     "test:e2e": "playwright test",
-    "worker": "tsx --tsconfig tsconfig.json src/worker/index.ts"
+    "worker": "tsx --tsconfig tsconfig.json src/worker/index.ts",
+    "make-admin": "tsx scripts/make-admin.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
