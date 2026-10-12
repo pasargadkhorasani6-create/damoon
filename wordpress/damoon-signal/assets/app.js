@@ -215,6 +215,49 @@
 		loadChart();
 	}
 
+	/* ---------- منحنی تجمعی R ---------- */
+
+	function drawCurve(canvas, pts) {
+		var css = getComputedStyle(canvas.closest('.dmn'));
+		var col = function (n) { return css.getPropertyValue(n).trim(); };
+		var dpr = window.devicePixelRatio || 1;
+		var W = canvas.clientWidth, H = canvas.clientHeight;
+		if (!W || !H || pts.length < 1) { return; }
+		canvas.width = W * dpr; canvas.height = H * dpr;
+		var g = canvas.getContext('2d');
+		g.setTransform(dpr, 0, 0, dpr, 0, 0);
+		g.clearRect(0, 0, W, H);
+
+		var padR = 56, padT = 10, padB = 10;
+		var plotW = W - padR, plotH = H - padT - padB;
+		var series = [0].concat(pts.map(function (p) { return p.r; }));
+		var lo = Math.min.apply(null, series), hi = Math.max.apply(null, series);
+		if (hi - lo < 1) { hi += 0.5; lo -= 0.5; }
+		var x = function (i) { return series.length > 1 ? i / (series.length - 1) * plotW : plotW / 2; };
+		var y = function (v) { return padT + (hi - v) / (hi - lo) * plotH; };
+
+		g.font = '11px ui-monospace, Menlo, Consolas, monospace';
+		g.textBaseline = 'middle';
+		[hi, 0, lo].forEach(function (v) {
+			var yy = Math.round(y(v)) + 0.5;
+			g.strokeStyle = col('--dmn-line'); g.lineWidth = 1;
+			g.setLineDash(v === 0 ? [] : [3, 4]);
+			g.beginPath(); g.moveTo(0, yy); g.lineTo(plotW, yy); g.stroke();
+			g.setLineDash([]);
+			g.fillStyle = col('--dmn-muted');
+			g.fillText((v > 0 ? '+' : '') + fmt(v, 1) + 'R', plotW + 6, yy);
+		});
+
+		var last = series[series.length - 1];
+		var c = last >= 0 ? col('--dmn-up') : col('--dmn-down');
+		g.beginPath();
+		series.forEach(function (v, i) { if (i) { g.lineTo(x(i), y(v)); } else { g.moveTo(x(i), y(v)); } });
+		g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = 'round';
+		g.stroke();
+		g.lineTo(x(series.length - 1), y(0)); g.lineTo(x(0), y(0)); g.closePath();
+		g.globalAlpha = 0.08; g.fillStyle = c; g.fill(); g.globalAlpha = 1;
+	}
+
 	/* ---------- کارنامه ---------- */
 
 	function initRecord(root) {
@@ -227,8 +270,20 @@
 		}
 		function cell(tr, text, cls) { tr.appendChild(el('td', cls || '', text)); }
 
+		var curveWrap = root.querySelector('[data-dmn="curve-wrap"]'), curve = root.querySelector('[data-dmn="curve"]');
+
 		api('record').then(function (r) {
 			var s = r.stats;
+			if (curveWrap && r.curve && r.curve.length) {
+				var lastR = r.curve[r.curve.length - 1].r;
+				curveWrap.hidden = false;
+				var tag = root.querySelector('[data-dmn="curve-last"]');
+				tag.textContent = (lastR > 0 ? '+' : '') + fmt(lastR, 2) + ' R';
+				tag.className = 'dmn-num ' + (lastR > 0 ? 'is-up' : (lastR < 0 ? 'is-down' : ''));
+				var redraw = function () { drawCurve(curve, r.curve); };
+				if (window.ResizeObserver) { new ResizeObserver(redraw).observe(curve); } else { window.addEventListener('resize', redraw); }
+				redraw();
+			}
 			tile(fa(s.total), 'کل ستاپ‌ها');
 			tile(fa(s.open), 'باز');
 			tile(fa(s.wins), 'به هدف رسیده');

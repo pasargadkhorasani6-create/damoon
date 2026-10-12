@@ -111,6 +111,13 @@
 .dmn-stat span { color: var(--dmn-muted); font-size: .85rem; }
 .dmn-note { grid-column: 1 / -1; margin: 0; color: var(--dmn-muted); font-size: .9rem; }
 
+.dmn-curve { margin: 0 0 16px; padding: 12px 14px; background: var(--dmn-panel); border: 1px solid var(--dmn-line); border-radius: 12px; }
+.dmn-curve[hidden] { display: none; }
+.dmn-curve-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--dmn-muted); font-size: .9rem; }
+.dmn-curve canvas { display: block; width: 100%; height: 180px; direction: ltr; }
+.dmn-denied p { margin: 12px 0 0; }
+a.dmn-btn { display: inline-block; text-decoration: none; }
+
 .dmn-table-wrap { overflow-x: auto; background: var(--dmn-panel); border: 1px solid var(--dmn-line); border-radius: 12px; }
 .dmn-table { width: 100%; min-width: 640px; margin: 0; border-collapse: collapse; font-size: .9rem; }
 .dmn-table th, .dmn-table td { padding: 9px 12px; border: 0; border-bottom: 1px solid var(--dmn-line); text-align: right; white-space: nowrap; background: transparent; }

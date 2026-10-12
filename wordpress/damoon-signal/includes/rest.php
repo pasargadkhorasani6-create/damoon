@@ -88,6 +88,13 @@ class Damoon_Rest {
 	}
 
 	public static function setup( WP_REST_Request $req ) {
+		if ( ! damoon_sig_can_use() ) {
+			return new WP_Error(
+				'damoon_forbidden',
+				is_user_logged_in() ? 'حساب شما به ستاپ‌ساز دسترسی ندارد.' : 'برای استفاده از ستاپ‌ساز وارد حساب کاربری شوید.',
+				array( 'status' => is_user_logged_in() ? 403 : 401 )
+			);
+		}
 		$quota = self::quota();
 		if ( $quota['used'] >= $quota['limit'] ) {
 			return new WP_Error(

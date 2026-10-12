@@ -19,6 +19,26 @@ class Damoon_Market {
 	/**
 	 * @return array|WP_Error فهرست کندل‌ها: time (ثانیه)، open، high، low، close، volume، closed
 	 */
+	/** آدرس‌های منبع داده به ترتیب اولویت. */
+	public static function bases() {
+		$out = array();
+		foreach ( preg_split( '/[\s,]+/', (string) damoon_sig_opt( 'api_base' ) ) as $b ) {
+			$b = untrailingslashit( trim( $b ) );
+			if ( $b && 0 === strpos( $b, 'http' ) ) {
+				$out[] = $b;
+			}
+		}
+		// آخرین آدرسی که جواب داده اول امتحان می‌شود.
+		$ok = get_transient( 'damoon_api_ok' );
+		if ( $ok && in_array( $ok, $out, true ) ) {
+			$out = array_values( array_unique( array_merge( array( $ok ), $out ) ) );
+		}
+		return array_slice( $out, 0, 6 );
+	}
+
+	/**
+	 * @return array|WP_Error فهرست کندل‌ها: time (ثانیه)، open، high، low، close، volume، closed
+	 */
 	public static function klines( $symbol, $tf, $limit = 300, $start_ms = null ) {
 		$args = array(
 			'symbol'   => $symbol,
@@ -28,18 +48,34 @@ class Damoon_Market {
 		if ( $start_ms ) {
 			$args['startTime'] = (int) $start_ms;
 		}
-		$url = rtrim( (string) damoon_sig_opt( 'api_base' ), '/' ) . '/api/v3/klines?' . http_build_query( $args );
-		$res = wp_remote_get( $url, array( 'timeout' => 12 ) );
 
-		if ( is_wp_error( $res ) ) {
-			return new WP_Error( 'damoon_data', 'اتصال به منبع داده برقرار نشد.', array( 'status' => 502 ) );
+		$rows  = null;
+		$error = 'اتصال به منبع داده برقرار نشد.';
+		foreach ( self::bases() as $base ) {
+			$res = wp_remote_get( $base . '/api/v3/klines?' . http_build_query( $args ), array( 'timeout' => 12 ) );
+			if ( is_wp_error( $res ) ) {
+				continue;
+			}
+			$code = (int) wp_remote_retrieve_response_code( $res );
+			if ( 400 === $code ) {
+				// نماد یا پارامتر نامعتبر است؛ آدرس دیگر هم همین را می‌گوید.
+				return new WP_Error( 'damoon_data', 'منبع داده این نماد را نمی‌شناسد.', array( 'status' => 502 ) );
+			}
+			if ( 200 !== $code ) {
+				$error = 'منبع داده پاسخ معتبر نداد.';
+				continue;
+			}
+			$rows = json_decode( wp_remote_retrieve_body( $res ), true );
+			if ( ! is_array( $rows ) ) {
+				$rows  = null;
+				$error = 'دادهٔ دریافتی قابل خواندن نیست.';
+				continue;
+			}
+			set_transient( 'damoon_api_ok', $base, 10 * MINUTE_IN_SECONDS );
+			break;
 		}
-		if ( 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
-			return new WP_Error( 'damoon_data', 'منبع داده پاسخ معتبر نداد.', array( 'status' => 502 ) );
-		}
-		$rows = json_decode( wp_remote_retrieve_body( $res ), true );
-		if ( ! is_array( $rows ) ) {
-			return new WP_Error( 'damoon_data', 'دادهٔ دریافتی قابل خواندن نیست.', array( 'status' => 502 ) );
+		if ( null === $rows ) {
+			return new WP_Error( 'damoon_data', $error, array( 'status' => 502 ) );
 		}
 
 		$now_ms = (int) round( microtime( true ) * 1000 );

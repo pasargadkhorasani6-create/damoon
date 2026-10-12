@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * شورت‌کدها و صفحهٔ تنظیمات.
+ * شورت‌کدها.
  *
  * [damoon_signal]  فرم ساخت ستاپ + نمودار
  * [damoon_record]  کارنامهٔ همهٔ سیگنال‌ها
@@ -21,8 +21,6 @@ class Damoon_UI {
 	public static function init() {
 		add_shortcode( 'damoon_signal', array( __CLASS__, 'sc_signal' ) );
 		add_shortcode( 'damoon_record', array( __CLASS__, 'sc_record' ) );
-		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
-		add_action( 'admin_init', array( __CLASS__, 'settings' ) );
 	}
 
 	private static function assets() {
@@ -43,6 +41,9 @@ class Damoon_UI {
 	const DISCLAIMER = 'این تحلیل‌ها قطعی نیستند و ممکن است اشتباه باشند. فقط برای آموزش و معاملهٔ کاغذی است و توصیهٔ مالی نیست.';
 
 	public static function sc_signal() {
+		if ( ! damoon_sig_can_use() ) {
+			return self::denied();
+		}
 		self::assets();
 		ob_start();
 		?>
@@ -77,6 +78,19 @@ class Damoon_UI {
 		return ob_get_clean();
 	}
 
+	/** پیام عدم دسترسی؛ افزونه‌های عضویت می‌توانند با فیلتر damoon_sig_denied_html متن را عوض کنند. */
+	private static function denied() {
+		wp_enqueue_style( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.css', array(), DAMOON_SIG_VER );
+		if ( is_user_logged_in() ) {
+			$body = '<p>حساب کاربری شما به ستاپ‌ساز دسترسی ندارد.</p>';
+		} else {
+			$url  = wp_login_url( get_permalink() ?: home_url( '/' ) );
+			$body = '<p>ستاپ‌ساز فقط برای اعضا فعال است.</p><p><a class="dmn-btn" href="' . esc_url( $url ) . '">ورود به حساب</a></p>';
+		}
+		$html = '<section class="dmn dmn-denied" dir="rtl"><header class="dmn-head"><h2 class="dmn-title">ستاپ‌ساز</h2></header>' . $body . '</section>';
+		return (string) apply_filters( 'damoon_sig_denied_html', $html, is_user_logged_in() );
+	}
+
 	public static function sc_record() {
 		self::assets();
 		ob_start();
@@ -87,6 +101,13 @@ class Damoon_UI {
 				<p class="dmn-sub">همهٔ ستاپ‌های صادرشده، برنده و بازنده، بدون حذف. ورود با قیمت بسته‌شدن کندل سیگنال و بدون کارمزد محاسبه می‌شود.</p>
 			</header>
 			<div class="dmn-stats" data-dmn="stats"></div>
+			<div class="dmn-curve" data-dmn="curve-wrap" hidden>
+				<div class="dmn-curve-head">
+					<span>منحنی تجمعی نتیجه (R)</span>
+					<span class="dmn-num" data-dmn="curve-last"></span>
+				</div>
+				<canvas data-dmn="curve" aria-label="منحنی تجمعی نتیجهٔ سیگنال‌های بسته‌شده"></canvas>
+			</div>
 			<div class="dmn-table-wrap">
 				<table class="dmn-table">
 					<thead>
@@ -99,92 +120,5 @@ class Damoon_UI {
 		</section>
 		<?php
 		return ob_get_clean();
-	}
-
-	/* ---------- تنظیمات ---------- */
-
-	public static function menu() {
-		add_options_page( 'Damoon Signal', 'Damoon Signal', 'manage_options', 'damoon-signal', array( __CLASS__, 'page' ) );
-	}
-
-	public static function settings() {
-		register_setting(
-			'damoon_sig',
-			'damoon_sig_options',
-			array( 'sanitize_callback' => array( __CLASS__, 'sanitize' ) )
-		);
-	}
-
-	public static function sanitize( $in ) {
-		$d   = damoon_sig_defaults();
-		$in  = (array) $in;
-		$out = array();
-
-		$base            = esc_url_raw( trim( (string) ( $in['api_base'] ?? '' ) ), array( 'https' ) );
-		$out['api_base'] = $base ? untrailingslashit( $base ) : $d['api_base'];
-
-		$syms = array();
-		foreach ( explode( ',', strtoupper( (string) ( $in['symbols'] ?? '' ) ) ) as $s ) {
-			$s = trim( $s );
-			if ( preg_match( '/^[A-Z0-9]{5,20}$/', $s ) ) {
-				$syms[] = $s;
-			}
-		}
-		$out['symbols'] = $syms ? implode( ',', array_slice( array_unique( $syms ), 0, 30 ) ) : $d['symbols'];
-
-		$clamp = function ( $key, $min, $max, $int = false ) use ( $in, $d ) {
-			$v = isset( $in[ $key ] ) && is_numeric( $in[ $key ] ) ? (float) $in[ $key ] : $d[ $key ];
-			$v = min( $max, max( $min, $v ) );
-			return $int ? (int) $v : $v;
-		};
-		$out['guest_limit']   = $clamp( 'guest_limit', 0, 1000, true );
-		$out['user_limit']    = $clamp( 'user_limit', 0, 10000, true );
-		$out['atr_stop_mult'] = $clamp( 'atr_stop_mult', 0.5, 5 );
-		$out['rr']            = $clamp( 'rr', 0.5, 10 );
-		$out['stretch_thr']   = $clamp( 'stretch_thr', 0.5, 6 );
-		$out['expiry_bars']   = $clamp( 'expiry_bars', 4, 500, true );
-		return $out;
-	}
-
-	public static function page() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		$fields = array(
-			'api_base'      => array( 'آدرس API داده', 'سازگار با Binance Spot. اگر سرور به Binance دسترسی ندارد، آدرس پراکسی خودتان را بگذارید.' ),
-			'symbols'       => array( 'نمادها', 'با کاما جدا کنید، مثل BTCUSDT,ETHUSDT' ),
-			'guest_limit'   => array( 'سهمیهٔ روزانهٔ مهمان', '' ),
-			'user_limit'    => array( 'سهمیهٔ روزانهٔ کاربر', '' ),
-			'atr_stop_mult' => array( 'ضریب ATR برای حد ضرر', '' ),
-			'rr'            => array( 'نسبت سود به ریسک', '' ),
-			'stretch_thr'   => array( 'آستانهٔ فاصله از EMA20 (بر حسب ATR)', 'برای الگوی بازگشت به میانگین.' ),
-			'expiry_bars'   => array( 'انقضای سیگنال (تعداد کندل)', '' ),
-		);
-		?>
-		<div class="wrap">
-			<h1>Damoon Signal</h1>
-			<p>شورت‌کدها: <code>[damoon_signal]</code> و <code>[damoon_record]</code></p>
-			<form method="post" action="options.php">
-				<?php settings_fields( 'damoon_sig' ); ?>
-				<table class="form-table" role="presentation">
-					<?php foreach ( $fields as $key => $f ) : ?>
-						<tr>
-							<th scope="row"><label for="dmn-<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $f[0] ); ?></label></th>
-							<td>
-								<input class="regular-text" dir="ltr" type="text"
-									id="dmn-<?php echo esc_attr( $key ); ?>"
-									name="damoon_sig_options[<?php echo esc_attr( $key ); ?>]"
-									value="<?php echo esc_attr( (string) damoon_sig_opt( $key ) ); ?>">
-								<?php if ( $f[1] ) : ?>
-									<p class="description"><?php echo esc_html( $f[1] ); ?></p>
-								<?php endif; ?>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-				</table>
-				<?php submit_button(); ?>
-			</form>
-		</div>
-		<?php
 	}
 }
