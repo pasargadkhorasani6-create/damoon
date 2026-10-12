@@ -3,6 +3,7 @@
  * تست‌های مستقل افزونه (بدون نیاز به وردپرس):  php wordpress/tests/run.php
  */
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'DAY_IN_SECONDS', 86400 );
 
 $GLOBALS['dmn_opts'] = array(
 	'stretch_thr'   => 2.0,
@@ -116,6 +117,8 @@ $rally = series(
 );
 $a = Damoon_Engine::from_candles( $rally, 'X', '1h' );
 check( 'stretched rally gives short mean reversion', $a['setup'] && 'short' === $a['setup']['direction'] && 'mean_reversion' === $a['setup']['strategy'] );
+check( '24h change computed', abs( $a['change_24h'] - ( $rally[299]['close'] / $rally[275]['close'] - 1 ) * 100 ) < 0.01 );
+check( 'scan snapshot', 'short' === Damoon_Scanner::snapshot( $a )['direction'] && null === Damoon_Scanner::snapshot( $a )['reason'] );
 check( 'short levels ordered', $a['setup']['stop'] > $a['setup']['entry'] && $a['setup']['target'] < $a['setup']['entry'] );
 
 $flat = series( 300, function ( $i ) { return 100 * ( 1 + 0.01 * sin( $i / 3 ) ); } );

@@ -22,7 +22,7 @@ global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}damoon_signals" );
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}damoon_outbox" );
 
-foreach ( array( 'damoon_sig_options', 'damoon_sig_db', 'damoon_sig_scan_state', 'damoon_sig_scan_last', 'damoon_sig_uid' ) as $opt ) {
+foreach ( array( 'damoon_sig_options', 'damoon_sig_db', 'damoon_sig_scan_state', 'damoon_sig_scan_last', 'damoon_sig_uid', 'damoon_sig_scan_latest', 'damoon_sig_ver' ) as $opt ) {
 	delete_option( $opt );
 }
 delete_metadata( 'user', 0, 'damoon_sig_quota', '', true );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Damoon Signal
  * Description: تولید ستاپ معاملاتی کریپتو (جهت، ورود، حد ضرر، هدف) با موتور قانون‌محور و کارنامهٔ شفاف. فقط آموزشی و معاملهٔ کاغذی.
- * Version: 0.2.0
+ * Version: 0.3.0
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: damoon-signal
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DAMOON_SIG_VER', '0.2.0' );
+define( 'DAMOON_SIG_VER', '0.3.0' );
 define( 'DAMOON_SIG_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 
@@ -22,7 +22,7 @@ define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 function damoon_sig_defaults() {
 	return array(
 		// چند آدرس با کاما یا خط جدید؛ به ترتیب امتحان می‌شوند.
-		'api_base'      => "https://data-api.binance.vision\nhttps://api.binance.com\nhttps://api1.binance.com\nhttps://api2.binance.com",
+		'api_base'      => "https://data-api.binance.vision\nhttps://api.binance.com\nhttps://api1.binance.com\nhttps://api2.binance.com\nhttps://api.mexc.com",
 		'symbols'       => 'BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT',
 		'guest_limit'   => 3,
 		'user_limit'    => 10,
@@ -36,7 +36,7 @@ function damoon_sig_defaults() {
 		'allowed_roles' => 'administrator',
 
 		// اسکن خودکار.
-		'auto_scan'     => 0,
+		'auto_scan'     => 1,
 		'scan_tfs'      => '1h,4h',
 
 		// تلگرام.
@@ -82,6 +82,28 @@ function damoon_sig_symbols() {
 /** تایم‌فریم‌های اسکن خودکار (فقط موارد مجاز). */
 function damoon_sig_scan_tfs() {
 	return array_values( array_intersect( damoon_sig_list( damoon_sig_opt( 'scan_tfs' ), false ), array_keys( Damoon_Market::TF ) ) );
+}
+
+/**
+ * آخرین وضعیت اسکن هر نماد، به ترتیب فهرست نمادها.
+ * قالب‌ها می‌توانند مستقیم از این تابع استفاده کنند.
+ *
+ * @param string $tf تایم‌فریم؛ خالی = اولین تایم‌فریم اسکن.
+ * @return array[] هر آیتم: symbol, tf, price, decimals, change_24h, direction (long|short|null), strategy, entry, stop, target, bar_time, updated
+ */
+function damoon_sig_scan_items( $tf = '' ) {
+	$tfs = damoon_sig_scan_tfs();
+	if ( ! $tf || ! isset( Damoon_Market::TF[ $tf ] ) ) {
+		$tf = $tfs ? $tfs[0] : '1h';
+	}
+	$latest = (array) get_option( 'damoon_sig_scan_latest', array() );
+	$out    = array();
+	foreach ( damoon_sig_symbols() as $symbol ) {
+		if ( isset( $latest[ $symbol . '|' . $tf ] ) ) {
+			$out[] = $latest[ $symbol . '|' . $tf ];
+		}
+	}
+	return $out;
 }
 
 /**

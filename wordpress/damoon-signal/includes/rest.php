@@ -46,6 +46,23 @@ class Damoon_Rest {
 		);
 		register_rest_route(
 			'damoon/v1',
+			'/scan',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'scan' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'tf' => array(
+						'default'           => '',
+						'validate_callback' => function ( $v ) {
+							return '' === $v || isset( Damoon_Market::TF[ $v ] );
+						},
+					),
+				),
+			)
+		);
+		register_rest_route(
+			'damoon/v1',
 			'/record',
 			array(
 				'methods'             => 'GET',
@@ -124,6 +141,17 @@ class Damoon_Rest {
 			'limit' => $quota['limit'],
 		);
 		return rest_ensure_response( $a );
+	}
+
+	/** آخرین وضعیت اسکن خودکار (بدون مصرف سهمیه؛ فقط از دادهٔ ذخیره‌شده). */
+	public static function scan( WP_REST_Request $req ) {
+		$last = get_option( 'damoon_sig_scan_last' );
+		return rest_ensure_response(
+			array(
+				'items'   => damoon_sig_scan_items( (string) $req['tf'] ),
+				'updated' => is_array( $last ) ? (int) $last['time'] : null,
+			)
+		);
 	}
 
 	public static function record() {

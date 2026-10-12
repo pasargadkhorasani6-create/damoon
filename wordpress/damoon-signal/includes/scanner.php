@@ -17,6 +17,28 @@ class Damoon_Scanner {
 		return (int) ( floor( $now / $len ) * $len - $len );
 	}
 
+	/** خلاصهٔ آخرین تحلیل هر نماد برای نمایش (خرید، فروش یا خنثی). */
+	public static function snapshot( array $a ) {
+		$s = $a['setup'];
+		return array(
+			'symbol'     => $a['symbol'],
+			'tf'         => $a['tf'],
+			'bar_time'   => (int) $a['bar_time'],
+			'price'      => (float) $a['price'],
+			'decimals'   => (int) $a['decimals'],
+			'change_24h' => isset( $a['change_24h'] ) ? $a['change_24h'] : null,
+			'direction'  => $s ? $s['direction'] : null,
+			'strategy'   => $s ? $s['strategy'] : null,
+			'entry'      => $s ? $s['entry'] : null,
+			'stop'       => $s ? $s['stop'] : null,
+			'target'     => $s ? $s['target'] : null,
+			'regime'     => $a['regime'],
+			'trend'      => $a['trend'],
+			'reason'     => $a['reason'] ? $a['reason']['code'] : null,
+			'updated'    => time(),
+		);
+	}
+
 	/**
 	 * @param bool $force اگر true باشد بدون توجه به تنظیم «اسکن خودکار» و کندل‌های قبلاً بررسی‌شده اجرا می‌شود.
 	 * @return array [checked, created, errors]
@@ -36,7 +58,8 @@ class Damoon_Scanner {
 		}
 		set_transient( 'damoon_scan_lock', 1, 5 * MINUTE_IN_SECONDS );
 
-		$done = (array) get_option( 'damoon_sig_scan_state', array() );
+		$done   = (array) get_option( 'damoon_sig_scan_state', array() );
+		$latest = (array) get_option( 'damoon_sig_scan_latest', array() );
 		$tfs  = damoon_sig_scan_tfs();
 		foreach ( damoon_sig_symbols() as $symbol ) {
 			foreach ( $tfs as $tf ) {
@@ -55,6 +78,7 @@ class Damoon_Scanner {
 					continue; // کندل علامت نمی‌خورد تا دفعهٔ بعد دوباره امتحان شود.
 				}
 				set_transient( 'damoon_a_' . $symbol . '_' . $tf, $a, 60 );
+				$latest[ $key ] = self::snapshot( $a );
 				if ( Damoon_Store::save( $a, 'scan' ) ) {
 					$stats['created']++;
 				}
@@ -63,7 +87,11 @@ class Damoon_Scanner {
 			}
 		}
 		update_option( 'damoon_sig_scan_state', $done, false );
-		update_option( 'damoon_sig_scan_last', array_merge( $stats, array( 'time' => time() ) ), false );
+		update_option( 'damoon_sig_scan_latest', $latest, false );
+		if ( $stats['checked'] || $force ) {
+			// اجراهای بی‌کار (کندل تازه‌ای بسته نشده) آمار آخرین اسکن واقعی را پاک نمی‌کنند.
+			update_option( 'damoon_sig_scan_last', array_merge( $stats, array( 'time' => time() ) ), false );
+		}
 		delete_transient( 'damoon_scan_lock' );
 		return $stats;
 	}

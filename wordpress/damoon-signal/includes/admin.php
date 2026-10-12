@@ -68,7 +68,18 @@ class Damoon_Admin {
 			printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', esc_attr( $f['type'] ), esc_html( $f['msg'] ) );
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && false !== strpos( (string) $screen->id, self::SLUG ) && defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
+		$ours   = $screen && false !== strpos( (string) $screen->id, self::SLUG );
+		$err    = get_transient( 'damoon_api_error' );
+		if ( $ours && $err ) {
+			printf(
+				'<div class="notice notice-error"><p><b>منبع داده در دسترس نیست</b>؛ تا وقتی این مشکل حل نشود، اسکن و ارزیابی انجام نمی‌شود.</p><p dir="ltr" style="text-align:left"><code>%s</code></p><p>اگر سرور در ایران است یا IP آن توسط Binance مسدود شده (HTTP 451 یا 403)، یک پراکسی (نمونهٔ Cloudflare Worker در پوشهٔ docs افزونه) بسازید و آدرسش را بالای «آدرس‌های API داده» در تنظیمات بگذارید.</p></div>',
+				esc_html( $err )
+			);
+		}
+		if ( $ours && ! damoon_sig_opt( 'auto_scan' ) ) {
+			echo '<div class="notice notice-warning"><p>اسکن خودکار خاموش است؛ کارنامه و شورت‌کد <code>[damoon_scan]</code> فقط با درخواست کاربران پر می‌شوند. از «تنظیمات ← اسکن خودکار» روشنش کنید.</p></div>';
+		}
+		if ( $ours && defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
 			echo '<div class="notice notice-info"><p>WP-Cron داخلی غیرفعال است؛ مطمئن شوید کرون سیستم هر چند دقیقه <code>wp-cron.php</code> را اجرا می‌کند، وگرنه ارزیابی، اسکن و ارسال انجام نمی‌شود.</p></div>';
 		}
 	}
@@ -240,6 +251,8 @@ class Damoon_Admin {
 				?>
 			</p>
 
+			<?php self::latest_scan(); ?>
+
 			<form method="get">
 				<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
 				<select name="status">
@@ -324,6 +337,48 @@ class Damoon_Admin {
 			<p class="description">سیگنال‌ها هرگز حذف یا ویرایش نمی‌شوند تا کارنامه قابل اعتماد بماند.</p>
 		</div>
 		<?php
+	}
+
+	/** آخرین نتیجهٔ اسکن هر نماد (همان دادهٔ [damoon_scan]). */
+	private static function latest_scan() {
+		$last = get_option( 'damoon_sig_scan_last' );
+		$rows = array();
+		foreach ( damoon_sig_scan_tfs() as $tf ) {
+			$rows = array_merge( $rows, damoon_sig_scan_items( $tf ) );
+		}
+		echo '<h2>آخرین اسکن</h2>';
+		if ( is_array( $last ) ) {
+			printf(
+				'<p class="description">%s — %d بررسی، %d ستاپ تازه، %d خطای داده.</p>',
+				esc_html( wp_date( 'Y-m-d H:i', (int) $last['time'] ) ),
+				(int) $last['checked'],
+				(int) $last['created'],
+				(int) $last['errors']
+			);
+		}
+		if ( ! $rows ) {
+			echo '<p>هنوز اسکنی انجام نشده است. دکمهٔ «اسکن همهٔ نمادها» را بزنید.</p>';
+			return;
+		}
+		echo '<table class="widefat striped" style="max-width:900px;margin-bottom:16px"><thead><tr><th>نماد</th><th>تایم‌فریم</th><th>قیمت</th><th>تغییر ۲۴ساعته</th><th>وضعیت</th><th>توضیح</th></tr></thead><tbody>';
+		$why = array(
+			'no_setup'          => 'هیچ الگویی برقرار نیست',
+			'wrong_playbook'    => 'خلاف روند اصلی در نوسان بالا',
+			'risk_out_of_range' => 'فاصلهٔ حد ضرر خارج از محدوده',
+			'no_data'           => 'دادهٔ کافی نیست',
+		);
+		foreach ( $rows as $r ) {
+			printf(
+				'<tr><td dir="ltr">%s</td><td>%s</td><td dir="ltr">%s</td><td dir="ltr">%s</td><td><b>%s</b></td><td>%s</td></tr>',
+				esc_html( $r['symbol'] ),
+				esc_html( Damoon_UI::TF_LABELS[ $r['tf'] ] ?? $r['tf'] ),
+				esc_html( number_format( (float) $r['price'], (int) $r['decimals'] ) ),
+				null === $r['change_24h'] ? '—' : esc_html( number_format( (float) $r['change_24h'], 2 ) . '%' ),
+				esc_html( 'long' === $r['direction'] ? 'خرید' : ( 'short' === $r['direction'] ? 'فروش' : 'خنثی' ) ),
+				esc_html( $r['direction'] ? ( Damoon_Telegram::STRATEGY[ $r['strategy'] ] ?? '' ) : ( $why[ $r['reason'] ] ?? '' ) )
+			);
+		}
+		echo '</tbody></table>';
 	}
 
 	/* ---------- صفحهٔ صف ارسال ---------- */
@@ -601,7 +656,7 @@ class Damoon_Admin {
 		<div class="wrap">
 			<h1>تنظیمات Damoon Signal</h1>
 			<?php settings_errors(); ?>
-			<p>شورت‌کدها: <code>[damoon_signal]</code> (ستاپ‌ساز) و <code>[damoon_record]</code> (کارنامه)</p>
+			<p>شورت‌کدها: <code>[damoon_signal]</code> (ستاپ‌ساز)، <code>[damoon_record]</code> (کارنامه) و <code>[damoon_scan tf="4h" theme="dark"]</code> (اسکن زنده)</p>
 
 			<h2>ابزارها</h2>
 			<p>

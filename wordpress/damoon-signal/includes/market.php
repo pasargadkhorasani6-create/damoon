@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * دریافت کندل از Binance و محاسبهٔ اندیکاتورها.
+ * دریافت کندل از Binance (یا هر API سازگار مثل MEXC) و محاسبهٔ اندیکاتورها.
  */
 class Damoon_Market {
 
@@ -16,9 +16,6 @@ class Damoon_Market {
 		'1d'  => 86400,
 	);
 
-	/**
-	 * @return array|WP_Error فهرست کندل‌ها: time (ثانیه)، open، high، low، close، volume، closed
-	 */
 	/** آدرس‌های منبع داده به ترتیب اولویت. */
 	public static function bases() {
 		$out = array();
@@ -49,34 +46,40 @@ class Damoon_Market {
 			$args['startTime'] = (int) $start_ms;
 		}
 
-		$rows  = null;
-		$error = 'اتصال به منبع داده برقرار نشد.';
+		$rows   = null;
+		$errors = array();
 		foreach ( self::bases() as $base ) {
-			$res = wp_remote_get( $base . '/api/v3/klines?' . http_build_query( $args ), array( 'timeout' => 12 ) );
+			$host = (string) wp_parse_url( $base, PHP_URL_HOST );
+			$q    = $args;
+			if ( false !== strpos( $host, 'mexc' ) && '1h' === $tf ) {
+				$q['interval'] = '60m'; // MEXC به‌جای 1h از 60m استفاده می‌کند.
+			}
+			$res = wp_remote_get( $base . '/api/v3/klines?' . http_build_query( $q ), array( 'timeout' => 12 ) );
 			if ( is_wp_error( $res ) ) {
+				$errors[] = $host . ': ' . $res->get_error_message();
 				continue;
 			}
 			$code = (int) wp_remote_retrieve_response_code( $res );
-			if ( 400 === $code ) {
-				// نماد یا پارامتر نامعتبر است؛ آدرس دیگر هم همین را می‌گوید.
-				return new WP_Error( 'damoon_data', 'منبع داده این نماد را نمی‌شناسد.', array( 'status' => 502 ) );
-			}
 			if ( 200 !== $code ) {
-				$error = 'منبع داده پاسخ معتبر نداد.';
+				// ۴۵۱ و ۴۰۳ یعنی این آدرس برای IP سرور مسدود است؛ آدرس بعدی امتحان می‌شود.
+				$errors[] = $host . ': HTTP ' . $code;
 				continue;
 			}
 			$rows = json_decode( wp_remote_retrieve_body( $res ), true );
-			if ( ! is_array( $rows ) ) {
-				$rows  = null;
-				$error = 'دادهٔ دریافتی قابل خواندن نیست.';
+			if ( ! is_array( $rows ) || ( $rows && ! is_array( reset( $rows ) ) ) ) {
+				$rows     = null;
+				$errors[] = $host . ': پاسخ قابل خواندن نیست';
 				continue;
 			}
 			set_transient( 'damoon_api_ok', $base, 10 * MINUTE_IN_SECONDS );
 			break;
 		}
 		if ( null === $rows ) {
-			return new WP_Error( 'damoon_data', $error, array( 'status' => 502 ) );
+			$detail = $errors ? implode( ' | ', array_slice( $errors, 0, 6 ) ) : 'هیچ آدرسی تنظیم نشده';
+			set_transient( 'damoon_api_error', $detail, HOUR_IN_SECONDS );
+			return new WP_Error( 'damoon_data', 'منبع داده در دسترس نیست. (' . $detail . ')', array( 'status' => 502 ) );
 		}
+		delete_transient( 'damoon_api_error' );
 
 		$now_ms = (int) round( microtime( true ) * 1000 );
 		$out    = array();

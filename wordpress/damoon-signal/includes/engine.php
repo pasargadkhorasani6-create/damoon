@@ -47,10 +47,17 @@ class Damoon_Engine {
 			'setup'      => null,
 			'reason'     => null,
 			'thesis'     => '',
+			'change_24h' => null,
 		);
 
 		if ( $n < self::MIN_BARS ) {
 			return self::reject( $out, 'no_data', 'دادهٔ کافی برای تحلیل این نماد در دسترس نیست.' );
+		}
+
+		// تغییر ۲۴ ساعته روی کندل‌های بسته‌شده.
+		$back = (int) round( DAY_IN_SECONDS / ( Damoon_Market::TF[ $tf ] ?? DAY_IN_SECONDS ) );
+		if ( $n > $back && $bars[ $n - 1 - $back ]['close'] > 0 ) {
+			$out['change_24h'] = round( ( $bars[ $n - 1 ]['close'] / $bars[ $n - 1 - $back ]['close'] - 1 ) * 100, 2 );
 		}
 
 		$h = array_column( $bars, 'high' );
