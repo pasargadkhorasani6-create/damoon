@@ -9,6 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * [damoon_signal]  فرم ساخت ستاپ + نمودار
  * [damoon_record]  کارنامهٔ همهٔ سیگنال‌ها
  * [damoon_scan]    آخرین وضعیت اسکن خودکار هر نماد (خرید، فروش، خنثی)
+ * [damoon_pulse]   نبض بازار: نظرات شبکه‌های اجتماعی، اخبار و هم‌سویی با ربات
  */
 class Damoon_UI {
 
@@ -23,6 +24,7 @@ class Damoon_UI {
 		add_shortcode( 'damoon_signal', array( __CLASS__, 'sc_signal' ) );
 		add_shortcode( 'damoon_record', array( __CLASS__, 'sc_record' ) );
 		add_shortcode( 'damoon_scan', array( __CLASS__, 'sc_scan' ) );
+		add_shortcode( 'damoon_pulse', array( __CLASS__, 'sc_pulse' ) );
 	}
 
 	private static function assets() {
@@ -164,6 +166,59 @@ class Damoon_UI {
 					</li>
 				<?php endforeach; ?>
 			</ul>
+		</section>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * [damoon_pulse symbol="BTCUSDT" theme="dark" title="…"]
+	 * بدون symbol، همهٔ نمادها به‌صورت دکمه نمایش داده می‌شوند. داده هر ۶۰ ثانیه در مرورگر تازه می‌شود.
+	 */
+	public static function sc_pulse( $atts ) {
+		$atts    = shortcode_atts(
+			array(
+				'symbol' => '',
+				'theme'  => '',
+				'title'  => 'نبض بازار',
+			),
+			$atts,
+			'damoon_pulse'
+		);
+		if ( ! damoon_sig_opt( 'pulse_enabled' ) ) {
+			return '';
+		}
+		$symbols = damoon_sig_symbols();
+		$symbol  = strtoupper( (string) $atts['symbol'] );
+		$fixed   = in_array( $symbol, $symbols, true );
+		if ( ! $fixed ) {
+			$symbol = $symbols ? $symbols[0] : '';
+		}
+		self::assets();
+		$initial = $symbol ? Damoon_Pulse::get( $symbol, false ) : null;
+
+		ob_start();
+		?>
+		<section class="dmn dmn-pulse<?php echo 'dark' === $atts['theme'] ? ' dmn-dark' : ''; ?>" dir="rtl" data-dmn="pulse"
+			data-symbol="<?php echo esc_attr( $symbol ); ?>" data-fixed="<?php echo $fixed ? '1' : '0'; ?>">
+			<header class="dmn-pulse-head">
+				<h3 class="dmn-title"><?php echo esc_html( $atts['title'] ); ?></h3>
+				<span class="dmn-live" data-dmn="live"><i aria-hidden="true"></i><span>زنده</span></span>
+				<span class="dmn-sub" data-dmn="updated"></span>
+			</header>
+			<?php if ( ! $fixed && count( $symbols ) > 1 ) : ?>
+				<div class="dmn-chips" data-dmn="symbols" role="group" aria-label="نماد"></div>
+			<?php endif; ?>
+			<div data-dmn="body" aria-live="polite">
+				<p class="dmn-empty">در حال دریافت نظرات و اخبار…</p>
+			</div>
+			<footer class="dmn-foot">
+				<span>منابع: StockTwits (برچسب خرید/فروش توسط خود کاربران)، Reddit و اخبار (جهت تخمینی با واژه‌ها)، شاخص ترس و طمع alternative.me. فقط نظرات ۲۴ ساعت اخیر شمرده می‌شود.</span>
+				<span class="dmn-warn"><?php echo esc_html( 'نظر کاربران شبکه‌های اجتماعی سیگنال معاملاتی نیست. ' . self::DISCLAIMER ); ?></span>
+			</footer>
+			<?php if ( $initial ) : ?>
+				<script type="application/json" data-dmn="initial"><?php echo wp_json_encode( $initial, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE ); ?></script>
+			<?php endif; ?>
 		</section>
 		<?php
 		return ob_get_clean();

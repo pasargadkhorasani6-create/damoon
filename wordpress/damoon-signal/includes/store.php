@@ -30,6 +30,7 @@ class Damoon_Store {
 			update_option( 'damoon_sig_ver', DAMOON_SIG_VER );
 			// بعد از نصب یا به‌روزرسانی، اولین اسکن بلافاصله انجام شود تا صفحه‌ها خالی نمانند.
 			wp_schedule_single_event( time(), 'damoon_sig_scan' );
+			wp_schedule_single_event( time() + 30, 'damoon_sig_pulse' );
 		}
 	}
 

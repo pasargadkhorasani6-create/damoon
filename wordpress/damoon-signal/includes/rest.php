@@ -63,6 +63,16 @@ class Damoon_Rest {
 		);
 		register_rest_route(
 			'damoon/v1',
+			'/pulse',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'pulse' ),
+				'permission_callback' => '__return_true',
+				'args'                => array( 'symbol' => $market_args['symbol'] ),
+			)
+		);
+		register_rest_route(
+			'damoon/v1',
 			'/record',
 			array(
 				'methods'             => 'GET',
@@ -152,6 +162,23 @@ class Damoon_Rest {
 				'updated' => is_array( $last ) ? (int) $last['time'] : null,
 			)
 		);
+	}
+
+	/** نبض بازار یک نماد؛ از کش خوانده می‌شود و بازدیدکننده‌ها درخواست بیرونی تازه نمی‌سازند. */
+	public static function pulse( WP_REST_Request $req ) {
+		if ( ! damoon_sig_opt( 'pulse_enabled' ) ) {
+			return new WP_Error( 'damoon_pulse_off', 'نبض بازار غیرفعال است.', array( 'status' => 404 ) );
+		}
+		$data = Damoon_Pulse::get( $req['symbol'], false );
+		if ( null === $data ) {
+			if ( ! wp_next_scheduled( 'damoon_sig_pulse' ) || wp_next_scheduled( 'damoon_sig_pulse' ) > time() + 60 ) {
+				wp_schedule_single_event( time(), 'damoon_sig_pulse' );
+			}
+			return new WP_Error( 'damoon_pulse_pending', 'داده هنوز آماده نیست؛ چند لحظهٔ دیگر دوباره تلاش کنید.', array( 'status' => 503 ) );
+		}
+		$res = rest_ensure_response( $data );
+		$res->header( 'Cache-Control', 'public, max-age=30' );
+		return $res;
 	}
 
 	public static function record() {

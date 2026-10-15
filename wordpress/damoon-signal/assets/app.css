@@ -151,7 +151,57 @@ a.dmn-btn { display: inline-block; text-decoration: none; }
 .dmn-scan-badge.is-long { color: var(--dmn-up); border-color: currentColor; }
 .dmn-scan-badge.is-short { color: var(--dmn-down); border-color: currentColor; }
 
+
+/* ---------- نبض بازار ---------- */
+.dmn-pulse-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+.dmn-pulse-head .dmn-title { margin: 0; font-size: 1.2rem; }
+.dmn-pulse-head .dmn-sub { margin-inline-start: auto; font-size: .85rem; }
+.dmn-live { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--dmn-up); border: 1px solid currentColor; }
+.dmn-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: dmn-pulse 1.6s ease-in-out infinite; }
+.dmn-live.is-off { color: var(--dmn-muted); }
+.dmn-live.is-off i { animation: none; }
+.dmn-pulse .dmn-chips { margin-bottom: 14px; }
+.dmn-pulse-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.dmn-pulse .dmn-stat { display: flex; flex-direction: column; gap: 2px; }
+.dmn-pulse .dmn-stat b { font-size: 1.25rem; }
+.dmn-pulse .dmn-stat small { color: var(--dmn-muted); font-size: .78rem; }
+.dmn-stat.is-long b, .dmn-stat.is-up b { color: var(--dmn-up); }
+.dmn-stat.is-short b, .dmn-stat.is-down b { color: var(--dmn-down); }
+.dmn-stat.is-none b { color: var(--dmn-muted); }
+.dmn-meter { display: flex; gap: 2px; height: 8px; margin-top: 8px; border-radius: 999px; overflow: hidden; background: var(--dmn-line); }
+.dmn-meter span { display: block; height: 100%; transition: width .6s ease; }
+.dmn-meter .is-bull { background: var(--dmn-up); }
+.dmn-meter .is-bear { background: var(--dmn-down); }
+.dmn-meter-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: .78rem; font-weight: 700; }
+.dmn-meter-labels .is-up { color: var(--dmn-up); }
+.dmn-meter-labels .is-down { color: var(--dmn-down); }
+.dmn-pulse .dmn-stats { margin: 12px 0 8px; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.dmn-pulse-sec { margin-top: 18px; }
+.dmn-pulse-sec h4 { margin: 0 0 8px; font-size: 1rem; color: var(--dmn-ink); }
+.dmn-pulse-sec h4 small { font-weight: 400; color: var(--dmn-muted); font-size: .8rem; }
+.dmn-pulse-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; }
+.dmn-posts { margin: 0; padding: 0; list-style: none; max-height: 520px; overflow-y: auto; }
+.dmn-post { padding: 10px 12px; margin-bottom: 8px; background: var(--dmn-panel); border: 1px solid var(--dmn-line); border-radius: 10px; }
+.dmn-post-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .78rem; color: var(--dmn-muted); margin-bottom: 4px; }
+.dmn-post-meta time { margin-inline-start: auto; }
+.dmn-src { font-weight: 700; color: var(--dmn-ink); }
+.dmn-author { direction: ltr; unicode-bidi: isolate; }
+.dmn-sent { padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; }
+.dmn-sent.is-bull { color: var(--dmn-up); }
+.dmn-sent.is-bear { color: var(--dmn-down); }
+.dmn-post-text { display: block; margin: 0; color: var(--dmn-ink); text-decoration: none; font-size: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
+a.dmn-post-text:hover { text-decoration: underline; }
+.dmn-post.dmn-new { animation: dmn-in .6s ease-out both; border-color: var(--dmn-accent); }
+@keyframes dmn-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes dmn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.dmn.dmn-dark { --dmn-accent: #2dd4bf; }
+@media (prefers-reduced-motion: reduce) {
+	.dmn-live i, .dmn-post.dmn-new { animation: none; }
+	.dmn-meter span { transition: none; }
+}
+
 @media (max-width: 760px) {
+	.dmn-pulse-cols { grid-template-columns: minmax(0, 1fr); }
 	.dmn { padding: 16px; margin: 16px auto; }
 	.dmn-body { grid-template-columns: minmax(0, 1fr); }
 	.dmn-chart { height: 300px; }

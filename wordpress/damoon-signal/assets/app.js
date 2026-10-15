@@ -320,9 +320,203 @@
 		});
 	}
 
+
+	/* ---------- نبض بازار ---------- */
+
+	var SRC = { stocktwits: 'StockTwits', reddit: 'Reddit', news: 'اخبار', fng: 'ترس و طمع' };
+	var SENT = { bull: 'خرید', bear: 'فروش' };
+	var DIR = { long: 'خرید', short: 'فروش' };
+
+	function ago(t) {
+		var s = Math.max(0, Math.round(Date.now() / 1000 - t));
+		if (s < 60) { return 'لحظاتی پیش'; }
+		if (s < 3600) { return fa(Math.floor(s / 60)) + ' دقیقه پیش'; }
+		if (s < 86400) { return fa(Math.floor(s / 3600)) + ' ساعت پیش'; }
+		return fa(Math.floor(s / 86400)) + ' روز پیش';
+	}
+	function pct(v) { return fa(Math.round(v)) + '٪'; }
+
+	function initPulse(root) {
+		var q = function (n) { return root.querySelector('[data-dmn="' + n + '"]'); };
+		var body = q('body'), updated = q('updated'), live = q('live');
+		var state = { symbol: root.getAttribute('data-symbol'), data: null, seen: {}, timer: null };
+
+		var chipsBox = q('symbols');
+		if (chipsBox) {
+			cfg.symbols.forEach(function (s) {
+				var b = el('button', '', pair(s));
+				b.type = 'button';
+				b.setAttribute('aria-pressed', String(s === state.symbol));
+				b.addEventListener('click', function () {
+					if (s === state.symbol) { return; }
+					state.symbol = s; state.seen = {}; state.primed = false; state.data = null;
+					chipsBox.querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+					body.textContent = ''; body.appendChild(el('p', 'dmn-empty', 'در حال دریافت…'));
+					load();
+				});
+				chipsBox.appendChild(b);
+			});
+		}
+
+		function section(title, sub) {
+			var sec = el('section', 'dmn-pulse-sec');
+			var h = el('h4', '', title);
+			if (sub) { h.appendChild(el('small', '', ' ' + sub)); }
+			sec.appendChild(h);
+			return sec;
+		}
+
+		function card(label, value, cls, note) {
+			var c = el('div', 'dmn-stat' + (cls ? ' ' + cls : ''));
+			c.appendChild(el('span', '', label));
+			c.appendChild(el('b', '', value));
+			if (note) { c.appendChild(el('small', '', note)); }
+			return c;
+		}
+
+		function bar(bullPct, bearPct) {
+			var wrap = el('div', 'dmn-meter');
+			wrap.setAttribute('role', 'img');
+			wrap.setAttribute('aria-label', 'خرید ' + pct(bullPct) + '، فروش ' + pct(bearPct));
+			var b = el('span', 'is-bull'); b.style.width = bullPct + '%';
+			var s = el('span', 'is-bear'); s.style.width = bearPct + '%';
+			wrap.appendChild(b); wrap.appendChild(s);
+			var labels = el('div', 'dmn-meter-labels');
+			labels.appendChild(el('span', 'is-up', 'خرید ' + pct(bullPct)));
+			labels.appendChild(el('span', 'is-down', 'فروش ' + pct(bearPct)));
+			var box = el('div');
+			box.appendChild(wrap); box.appendChild(labels);
+			return box;
+		}
+
+		function item(it, isNew) {
+			var li = el('li', 'dmn-post' + (isNew ? ' dmn-new' : ''));
+			var meta = el('div', 'dmn-post-meta');
+			meta.appendChild(el('span', 'dmn-src is-' + it.source, it.source === 'news' && it.author ? it.author : SRC[it.source]));
+			if (it.sentiment) {
+				meta.appendChild(el('span', 'dmn-sent is-' + it.sentiment, SENT[it.sentiment] + (it.tagged ? '' : ' (تخمینی)')));
+			}
+			if (it.author && it.source !== 'news') { meta.appendChild(el('span', 'dmn-author', '@' + it.author)); }
+			meta.appendChild(el('time', '', ago(it.time)));
+			li.appendChild(meta);
+			var text = it.url ? el('a', 'dmn-post-text', it.text) : el('p', 'dmn-post-text', it.text);
+			if (it.url) { text.href = it.url; text.target = '_blank'; text.rel = 'noopener nofollow ugc'; }
+			text.dir = 'auto';
+			li.appendChild(text);
+			return li;
+		}
+
+		function list(items, empty) {
+			if (!items.length) { return el('p', 'dmn-empty', empty); }
+			var ul = el('ul', 'dmn-posts');
+			items.forEach(function (it) {
+				ul.appendChild(item(it, state.primed && !state.seen[it.id]));
+			});
+			return ul;
+		}
+
+		function render(d) {
+			state.data = d;
+			body.textContent = '';
+			var s = d.social;
+
+			/* خلاصه */
+			var grid = el('div', 'dmn-pulse-grid');
+			var dm = d.damoon;
+			grid.appendChild(card('ربات دامون' + (dm && dm.tf ? ' (' + (cfg.tfs[dm.tf] || dm.tf) + ')' : ''),
+				dm && dm.direction ? DIR[dm.direction] : 'خنثی', dm && dm.direction ? 'is-' + dm.direction : 'is-none'));
+
+			var crowd = card('نظر جمع', s.bull_pct === null ? 'نامشخص' : (s.bull_pct >= s.bear_pct ? 'خرید ' + pct(s.bull_pct) : 'فروش ' + pct(s.bear_pct)), '',
+				s.bull_pct === null ? 'نظر جهت‌دار کافی نیست (' + fa(s.bull + s.bear) + ')' : 'از ' + fa(s.bull + s.bear) + ' نظر جهت‌دار');
+			if (s.bull_pct !== null) { crowd.appendChild(bar(s.bull_pct, s.bear_pct)); }
+			grid.appendChild(crowd);
+
+			var VS = { agree: ['هم‌سو با ربات', 'is-up'], disagree: ['مخالف ربات', 'is-down'], mixed: ['نظرات دوگانه', ''] };
+			var vs = d.versus && VS[d.versus];
+			grid.appendChild(card('هم‌سویی جمع با دامون', vs ? vs[0] : '—', vs ? vs[1] : '',
+				vs ? '' : (dm && dm.direction ? 'دادهٔ کافی نیست' : 'ربات فعلاً ستاپی ندارد')));
+
+			if (d.fng) {
+				grid.appendChild(card('ترس و طمع (کل بازار کریپتو)', d.fng.label, d.fng.value >= 55 ? 'is-up' : (d.fng.value <= 45 ? 'is-down' : ''), 'شاخص ' + fa(d.fng.value) + ' از ۱۰۰'));
+			}
+			body.appendChild(grid);
+
+			/* حجم نظرات */
+			var vol = el('div', 'dmn-stats');
+			vol.appendChild(card('حجم نظرات ۲۴ ساعت', fa(s.total)));
+			vol.appendChild(card('نظر در ساعت', s.per_hour === null ? '—' : fa(s.per_hour)));
+			vol.appendChild(card('خرید', fa(s.bull), 'is-long'));
+			vol.appendChild(card('فروش', fa(s.bear), 'is-short'));
+			vol.appendChild(card('خنثی', fa(s.neutral)));
+			body.appendChild(vol);
+
+			var srcs = el('ul', 'dmn-tags');
+			Object.keys(s.by_source || {}).forEach(function (k) {
+				var t = s.by_source[k];
+				srcs.appendChild(el('li', '', SRC[k] + ': ' + fa(t.total) + ' نظر، خرید ' + fa(t.bull) + '، فروش ' + fa(t.bear) + (t.tagged ? ' (برچسب کاربران)' : ' (تخمینی)')));
+			});
+			body.appendChild(srcs);
+
+			/* نظرات هم‌سو */
+			if (dm && dm.direction) {
+				var al = section('نظرات هم‌سو با استراتژی دامون', '(' + DIR[dm.direction] + ')');
+				al.appendChild(list(d.aligned, 'در ۲۴ ساعت اخیر نظری هم‌سو با ربات ثبت نشده است.'));
+				body.appendChild(al);
+			}
+
+			/* جریان زنده و اخبار */
+			var cols = el('div', 'dmn-pulse-cols');
+			var feed = section('جریان زندهٔ نظرات');
+			feed.appendChild(list(d.feed, 'نظری در ۲۴ ساعت اخیر پیدا نشد.'));
+			cols.appendChild(feed);
+
+			var news = section('اخبار و فاندامنتال', d.news.total ? '(لحن تیترها: ' + fa(d.news.bull) + ' مثبت، ' + fa(d.news.bear) + ' منفی، ' + fa(d.news.neutral) + ' خنثی)' : '');
+			news.appendChild(list(d.news.items, 'خبری در ۲۴ ساعت اخیر پیدا نشد.'));
+			cols.appendChild(news);
+			body.appendChild(cols);
+
+			var errs = Object.keys(d.errors || {});
+			if (errs.length) {
+				body.appendChild(el('p', 'dmn-note', 'در دسترس نبود: ' + errs.map(function (k) { return SRC[k] || k; }).join('، ') + '. دادهٔ این منابع در به‌روزرسانی بعدی دوباره گرفته می‌شود.'));
+			}
+
+			d.feed.concat(d.news.items).forEach(function (it) { state.seen[it.id] = true; });
+			state.primed = true;
+			stamp();
+		}
+
+		function stamp() {
+			if (state.data) { updated.textContent = 'به‌روزرسانی: ' + ago(state.data.updated); }
+		}
+
+		function load() {
+			var sym = state.symbol;
+			live.classList.add('is-loading');
+			return api('pulse?symbol=' + encodeURIComponent(sym)).then(function (d) {
+				if (sym !== state.symbol) { return; }
+				live.classList.remove('is-off');
+				render(d);
+			}).catch(function (e) {
+				if (sym !== state.symbol) { return; }
+				live.classList.add('is-off');
+				if (!state.data) { body.textContent = ''; body.appendChild(el('p', 'dmn-empty', e.message)); }
+			}).then(function () { live.classList.remove('is-loading'); });
+		}
+
+		var init = q('initial');
+		if (init) {
+			try { render(JSON.parse(init.textContent)); } catch (e) { /* داده‌ی اولیه نامعتبر؛ از API گرفته می‌شود */ }
+		}
+		load();
+		setInterval(function () { if (!document.hidden) { load(); } }, 60000);
+		setInterval(stamp, 15000);
+		document.addEventListener('visibilitychange', function () { if (!document.hidden) { load(); } });
+	}
+
 	function boot() {
 		document.querySelectorAll('.dmn[data-dmn="signal"]').forEach(initSignal);
 		document.querySelectorAll('.dmn[data-dmn="record"]').forEach(initRecord);
+		document.querySelectorAll('.dmn[data-dmn="pulse"]').forEach(initPulse);
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();

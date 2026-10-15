@@ -517,6 +517,25 @@ class Damoon_Admin {
 		$out['site_key_id']  = preg_match( '/^[A-Za-z0-9_.\-]{1,64}$/', $key_id ) ? $key_id : '';
 		$out['site_secret']  = self::secret( $in, 'site_secret', $prev, '/^[^\s,:]{32,256}$/', 'Secret سایت دامون (حداقل ۳۲ کاراکتر)' );
 
+		$out['pulse_enabled'] = empty( $in['pulse_enabled'] ) ? 0 : 1;
+		$srcs                 = array_intersect( array_map( 'sanitize_key', (array) ( $in['pulse_sources'] ?? array() ) ), array_keys( Damoon_Pulse::SOURCES ) );
+		$out['pulse_sources'] = $srcs ? implode( ',', $srcs ) : '';
+		$feeds                = array();
+		foreach ( preg_split( '/[\s]+/', (string) ( $in['pulse_news_feeds'] ?? '' ) ) as $f ) {
+			// {q} = نام رمزارز؛ esc_url_raw آکولاد را خراب می‌کند پس موقتاً جایگزین می‌شود.
+			$f = esc_url_raw( str_replace( '{q}', 'DMNQ', trim( $f ) ), array( 'https' ) );
+			if ( $f ) {
+				$feeds[] = str_replace( 'DMNQ', '{q}', $f );
+			}
+		}
+		$out['pulse_news_feeds'] = implode( "\n", array_slice( array_unique( $feeds ), 0, 5 ) );
+		$proxy                   = self::urls( $in['pulse_proxy'] ?? '', 1 );
+		$out['pulse_proxy']      = $proxy ? $proxy[0] : '';
+		if ( $out['pulse_enabled'] !== (int) $prev['pulse_enabled'] || $out['pulse_sources'] !== (string) $prev['pulse_sources'] ) {
+			// منابع تغییر کرد؛ داده‌ی تازه در اجرای بعدی کرون ساخته می‌شود.
+			wp_schedule_single_event( time() + 5, 'damoon_sig_pulse' );
+		}
+
 		$out['delete_data'] = empty( $in['delete_data'] ) ? 0 : 1;
 
 		if ( $out['tg_enabled'] && ( ! $out['tg_chat'] || ( ! $out['tg_token'] && ! defined( 'DAMOON_TG_TOKEN' ) ) ) ) {
@@ -586,6 +605,12 @@ class Damoon_Admin {
 				'site_url'     => array( 'آدرس سایت', 'text', 'مثل https://example.com' ),
 				'site_key_id'  => array( 'شناسهٔ کلید (keyId)', 'text', 'همان بخش قبل از «:» در BOT_API_KEYS سایت، مثلاً wp1' ),
 				'site_secret'  => array( 'Secret', 'secret', 'حداقل ۳۲ کاراکتر؛ همان بخش بعد از «:» در BOT_API_KEYS. یا در wp-config.php: define( \'DAMOON_SITE_SECRET\', \'...\' );', 'DAMOON_SITE_SECRET' ),
+			),
+			'نبض بازار'      => array(
+				'pulse_enabled'    => array( 'فعال', 'checkbox', 'شورت‌کد [damoon_pulse]: حجم نظرات، نسبت خرید/فروش، نظرات هم‌سو با ربات، اخبار و شاخص ترس و طمع. هر ۵ دقیقه به‌روز می‌شود.' ),
+				'pulse_sources'    => array( 'منابع', 'checks', 'StockTwits برچسب خرید/فروش را خود کاربران می‌زنند؛ جهت Reddit و اخبار با واژه‌ها تخمین زده می‌شود.', Damoon_Pulse::SOURCES ),
+				'pulse_news_feeds' => array( 'فیدهای خبری (RSS)', 'textarea', 'هر خط یک آدرس https (حداکثر ۵). {q} با نام رمزارز جایگزین می‌شود؛ فیدهای عمومی بر اساس نام رمزارز فیلتر می‌شوند.' ),
+				'pulse_proxy'      => array( 'پراکسی', 'text', 'برای سرور ایران: آدرس Cloudflare Worker (مسیر ‎/fetch‎ نمونهٔ docs/cloudflare-worker.js). خالی = اتصال مستقیم.' ),
 			),
 			'حذف افزونه'     => array(
 				'delete_data' => array( 'حذف داده‌ها', 'checkbox', 'اگر فعال باشد، با «حذف» افزونه از وردپرس، کارنامه و همهٔ تنظیمات برای همیشه پاک می‌شود.' ),

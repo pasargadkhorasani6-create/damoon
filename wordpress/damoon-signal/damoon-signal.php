@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Damoon Signal
  * Description: تولید ستاپ معاملاتی کریپتو (جهت، ورود، حد ضرر، هدف) با موتور قانون‌محور و کارنامهٔ شفاف. فقط آموزشی و معاملهٔ کاغذی.
- * Version: 0.3.0
+ * Version: 0.4.0
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: damoon-signal
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DAMOON_SIG_VER', '0.3.0' );
+define( 'DAMOON_SIG_VER', '0.4.0' );
 define( 'DAMOON_SIG_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 
@@ -51,6 +51,12 @@ function damoon_sig_defaults() {
 		'site_url'      => '',
 		'site_key_id'   => '',
 		'site_secret'   => '',
+
+		// نبض بازار (نظرات شبکه‌های اجتماعی، اخبار، ترس و طمع).
+		'pulse_enabled'    => 1,
+		'pulse_sources'    => 'stocktwits,reddit,news,fng',
+		'pulse_news_feeds' => "https://news.google.com/rss/search?q={q}+when:1d&hl=en-US&gl=US&ceid=US:en\nhttps://www.coindesk.com/arc/outboundfeeds/rss/\nhttps://cointelegraph.com/rss",
+		'pulse_proxy'      => '',
 
 		'delete_data'   => 0,
 	);
@@ -135,6 +141,7 @@ require_once DAMOON_SIG_DIR . 'includes/outbox.php';
 require_once DAMOON_SIG_DIR . 'includes/telegram.php';
 require_once DAMOON_SIG_DIR . 'includes/bridge.php';
 require_once DAMOON_SIG_DIR . 'includes/scanner.php';
+require_once DAMOON_SIG_DIR . 'includes/pulse.php';
 require_once DAMOON_SIG_DIR . 'includes/rest.php';
 require_once DAMOON_SIG_DIR . 'includes/ui.php';
 require_once DAMOON_SIG_DIR . 'includes/admin.php';
@@ -163,6 +170,7 @@ function damoon_sig_cron_events() {
 		'damoon_sig_evaluate' => 'hourly',
 		'damoon_sig_scan'     => 'damoon_15m',
 		'damoon_sig_outbox'   => 'damoon_5m',
+		'damoon_sig_pulse'    => 'damoon_5m',
 	);
 }
 
@@ -188,6 +196,7 @@ function damoon_sig_deactivate() {
 add_action( 'damoon_sig_evaluate', array( 'Damoon_Store', 'evaluate_open' ) );
 add_action( 'damoon_sig_scan', array( 'Damoon_Scanner', 'run' ) );
 add_action( 'damoon_sig_outbox', array( 'Damoon_Outbox', 'run' ) );
+add_action( 'damoon_sig_pulse', array( 'Damoon_Pulse', 'run' ) );
 add_action( 'damoon_sig_created', array( 'Damoon_Outbox', 'on_created' ) );
 add_action( 'damoon_sig_closed', array( 'Damoon_Outbox', 'on_closed' ) );
 add_action( 'rest_api_init', array( 'Damoon_Rest', 'register' ) );
