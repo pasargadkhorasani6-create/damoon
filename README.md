@@ -73,6 +73,7 @@ Nginx (SSL, rate limit) ──► Next.js (app) ──► PostgreSQL
 │   ├── integration_example.py
 │   ├── mql4/               EA نسخه‌ی MQL4 + SignalPublisher.mqh
 │   └── tests/              تست‌های pytest
+├── wordpress/              افزونهٔ وردپرس Damoon Signal (ستاپ‌ساز کریپتو) — راهنما: wordpress/README.md
 ├── deploy/                 تنظیمات Nginx، گرفتن SSL، بازگردانی پشتیبان
 ├── docker-compose.yml
 └── .env.production.example
