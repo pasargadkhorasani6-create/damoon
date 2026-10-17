@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Damoon Signal
  * Description: تولید ستاپ معاملاتی کریپتو (جهت، ورود، حد ضرر، هدف) با موتور قانون‌محور و کارنامهٔ شفاف. فقط آموزشی و معاملهٔ کاغذی.
- * Version: 0.4.0
+ * Version: 0.4.1
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: damoon-signal
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DAMOON_SIG_VER', '0.4.0' );
+define( 'DAMOON_SIG_VER', '0.4.1' );
 define( 'DAMOON_SIG_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 
@@ -57,6 +57,10 @@ function damoon_sig_defaults() {
 		'pulse_sources'    => 'stocktwits,reddit,news,fng',
 		'pulse_news_feeds' => "https://news.google.com/rss/search?q={q}+when:1d&hl=en-US&gl=US&ceid=US:en\nhttps://www.coindesk.com/arc/outboundfeeds/rss/\nhttps://cointelegraph.com/rss",
 		'pulse_proxy'      => '',
+		// نمایش خودکار بدون شورت‌کد: front = صفحهٔ اصلی، robot = صفحه‌هایی که شورت‌کد ربات دارند.
+		'pulse_auto'       => 'front,robot',
+		// اختیاری: انتخابگر CSS عنصری که نبض بازار در صفحهٔ اصلی بعد از آن قرار بگیرد (مثلاً #scan یا .hero).
+		'pulse_anchor'     => '',
 
 		'delete_data'   => 0,
 	);

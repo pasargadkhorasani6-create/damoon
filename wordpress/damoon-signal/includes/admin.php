@@ -28,6 +28,7 @@ class Damoon_Admin {
 		add_menu_page( 'Damoon Signal', 'دامون سیگنال', self::CAP, self::SLUG, array( __CLASS__, 'page_signals' ), 'dashicons-chart-line', 58 );
 		add_submenu_page( self::SLUG, 'سیگنال‌ها', 'سیگنال‌ها', self::CAP, self::SLUG, array( __CLASS__, 'page_signals' ) );
 		add_submenu_page( self::SLUG, 'صف ارسال', 'صف ارسال', self::CAP, self::SLUG . '-outbox', array( __CLASS__, 'page_outbox' ) );
+		add_submenu_page( self::SLUG, 'نبض بازار', 'نبض بازار', self::CAP, self::SLUG . '-pulse', array( __CLASS__, 'page_pulse' ) );
 		add_submenu_page( self::SLUG, 'تنظیمات', 'تنظیمات', self::CAP, self::SLUG . '-settings', array( __CLASS__, 'page_settings' ) );
 	}
 
@@ -115,6 +116,24 @@ class Damoon_Admin {
 				$n = Damoon_Outbox::retry_dead();
 				Damoon_Outbox::run();
 				self::flash( sprintf( '%d پیام دوباره در صف قرار گرفت.', $n ) );
+				break;
+
+			case 'pulse_refresh':
+				if ( ! damoon_sig_opt( 'pulse_enabled' ) ) {
+					self::flash( 'نبض بازار در تنظیمات خاموش است.', 'warning' );
+					break;
+				}
+				$errs = array();
+				foreach ( array_slice( damoon_sig_symbols(), 0, Damoon_Pulse::MAX_SYMS ) as $sym ) {
+					$d = Damoon_Pulse::refresh( $sym );
+					foreach ( $d['errors'] as $src => $msg ) {
+						$errs[ $src ] = $msg;
+					}
+				}
+				self::flash(
+					$errs ? 'به‌روزرسانی انجام شد، ولی این منابع در دسترس نبودند: ' . implode( '، ', array_keys( $errs ) ) . '. جزئیات در جدول پایین.' : 'نبض بازار برای همهٔ نمادها به‌روز شد.',
+					$errs ? 'warning' : 'success'
+				);
 				break;
 
 			case 'test_data':
@@ -441,6 +460,66 @@ class Damoon_Admin {
 		<?php
 	}
 
+	/* ---------- نبض بازار ---------- */
+
+	public static function page_pulse() {
+		if ( ! current_user_can( self::CAP ) ) {
+			return;
+		}
+		$next = wp_next_scheduled( 'damoon_sig_pulse' );
+		$auto = damoon_sig_list( damoon_sig_opt( 'pulse_auto' ), false );
+		?>
+		<div class="wrap">
+			<h1>نبض بازار</h1>
+			<?php if ( ! damoon_sig_opt( 'pulse_enabled' ) ) : ?>
+				<div class="notice notice-warning inline"><p>نبض بازار خاموش است. از «تنظیمات ← نبض بازار» روشنش کنید.</p></div>
+			<?php endif; ?>
+			<p>
+				<?php self::button( 'pulse_refresh', 'به‌روزرسانی الان (همهٔ نمادها)', true ); ?>
+				<a class="button" href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank">مشاهدهٔ صفحهٔ اصلی</a>
+				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '-settings' ) ); ?>">تنظیمات</a>
+			</p>
+			<p>
+				محل نمایش:
+				<?php echo esc_html( $auto ? implode( '، ', array_map( function ( $a ) { return 'front' === $a ? 'صفحهٔ اصلی (خودکار)' : 'صفحه‌های ربات (خودکار)'; }, $auto ) ) : 'فقط جایی که شورت‌کد گذاشته شده' ); ?>
+				— شورت‌کد دستی: <code>[damoon_pulse theme="dark"]</code>
+				— اجرای بعدی کرون: <span dir="ltr"><?php echo $next ? esc_html( wp_date( 'H:i:s', $next ) ) : 'زمان‌بندی نشده'; ?></span>
+			</p>
+			<table class="widefat striped" style="max-width:1100px">
+				<thead><tr><th>نماد</th><th>آخرین به‌روزرسانی</th><th>نظرات ۲۴ ساعت</th><th>خرید / فروش</th><th>اخبار</th><th>ربات</th><th>منابع در دسترس نبود</th></tr></thead>
+				<tbody>
+				<?php
+				foreach ( array_slice( damoon_sig_symbols(), 0, Damoon_Pulse::MAX_SYMS ) as $sym ) :
+					$d = Damoon_Pulse::get( $sym, false );
+					?>
+					<tr>
+						<td dir="ltr"><?php echo esc_html( $sym ); ?></td>
+						<?php if ( ! $d ) : ?>
+							<td colspan="6">هنوز داده‌ای گرفته نشده؛ «به‌روزرسانی الان» را بزنید.</td>
+						<?php else : ?>
+							<td dir="ltr"><?php echo esc_html( wp_date( 'Y-m-d H:i', (int) $d['updated'] ) ); ?></td>
+							<td><?php echo (int) $d['social']['total']; ?></td>
+							<td><?php echo (int) $d['social']['bull'] . ' / ' . (int) $d['social']['bear']; ?></td>
+							<td><?php echo (int) $d['news']['total']; ?></td>
+							<td><?php echo esc_html( $d['damoon'] && $d['damoon']['direction'] ? ( 'long' === $d['damoon']['direction'] ? 'خرید' : 'فروش' ) : 'خنثی' ); ?></td>
+							<td dir="ltr" style="text-align:left">
+								<?php
+								foreach ( $d['errors'] as $src => $msg ) {
+									echo '<div><b>' . esc_html( $src ) . '</b>: <code>' . esc_html( $msg ) . '</code></div>';
+								}
+								echo $d['errors'] ? '' : '—';
+								?>
+							</td>
+						<?php endif; ?>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<p class="description">اگر منابع خطا می‌دهند (مثلاً <code>cURL error 28</code>، <code>HTTP 403</code> یا <code>Could not resolve host</code>)، سرور به آن‌ها دسترسی ندارد — روی سرور ایران این طبیعی است. Cloudflare Worker نمونهٔ <code>docs/cloudflare-worker.js</code> را بسازید و آدرسش را در «تنظیمات ← نبض بازار ← پراکسی» بگذارید.</p>
+		</div>
+		<?php
+	}
+
 	/* ---------- تنظیمات ---------- */
 
 	public static function settings() {
@@ -529,6 +608,11 @@ class Damoon_Admin {
 			}
 		}
 		$out['pulse_news_feeds'] = implode( "\n", array_slice( array_unique( $feeds ), 0, 5 ) );
+		$auto                    = array_intersect( array_map( 'sanitize_key', (array) ( $in['pulse_auto'] ?? array() ) ), array( 'front', 'robot' ) );
+		$out['pulse_auto']       = implode( ',', $auto );
+		$anchor                  = trim( wp_strip_all_tags( (string) ( $in['pulse_anchor'] ?? '' ) ) );
+		// فقط انتخابگر CSS ساده (بدون کاراکترهایی که از رشتهٔ JS بیرون بزنند).
+		$out['pulse_anchor']     = preg_match( '/^[A-Za-z0-9_\-#.\[\]=:>\s"\'()*~+^$|]{1,120}$/', $anchor ) && false === strpos( $anchor, '</' ) ? $anchor : '';
 		$proxy                   = self::urls( $in['pulse_proxy'] ?? '', 1 );
 		$out['pulse_proxy']      = $proxy ? $proxy[0] : '';
 		if ( $out['pulse_enabled'] !== (int) $prev['pulse_enabled'] || $out['pulse_sources'] !== (string) $prev['pulse_sources'] ) {
@@ -610,6 +694,16 @@ class Damoon_Admin {
 				'pulse_enabled'    => array( 'فعال', 'checkbox', 'شورت‌کد [damoon_pulse]: حجم نظرات، نسبت خرید/فروش، نظرات هم‌سو با ربات، اخبار و شاخص ترس و طمع. هر ۵ دقیقه به‌روز می‌شود.' ),
 				'pulse_sources'    => array( 'منابع', 'checks', 'StockTwits برچسب خرید/فروش را خود کاربران می‌زنند؛ جهت Reddit و اخبار با واژه‌ها تخمین زده می‌شود.', Damoon_Pulse::SOURCES ),
 				'pulse_news_feeds' => array( 'فیدهای خبری (RSS)', 'textarea', 'هر خط یک آدرس https (حداکثر ۵). {q} با نام رمزارز جایگزین می‌شود؛ فیدهای عمومی بر اساس نام رمزارز فیلتر می‌شوند.' ),
+				'pulse_auto'       => array(
+					'نمایش خودکار',
+					'checks',
+					'بدون نیاز به شورت‌کد. در صفحهٔ اصلی قبل از فوتر سایت (یا بعد از «عنصر مرجع») و زیر صفحه‌هایی که [damoon_scan] یا [damoon_signal] دارند نمایش داده می‌شود.',
+					array(
+						'front' => 'صفحهٔ اصلی',
+						'robot' => 'صفحه‌های ربات',
+					),
+				),
+				'pulse_anchor'     => array( 'عنصر مرجع در صفحهٔ اصلی', 'text', 'اختیاری؛ انتخابگر CSS بخشی که نبض بازار زیر آن بیاید، مثل #robot-scan یا .hero. خالی = قبل از فوتر.' ),
 				'pulse_proxy'      => array( 'پراکسی', 'text', 'برای سرور ایران: آدرس Cloudflare Worker (مسیر ‎/fetch‎ نمونهٔ docs/cloudflare-worker.js). خالی = اتصال مستقیم.' ),
 			),
 			'حذف افزونه'     => array(

@@ -25,6 +25,56 @@ class Damoon_UI {
 		add_shortcode( 'damoon_record', array( __CLASS__, 'sc_record' ) );
 		add_shortcode( 'damoon_scan', array( __CLASS__, 'sc_scan' ) );
 		add_shortcode( 'damoon_pulse', array( __CLASS__, 'sc_pulse' ) );
+		add_filter( 'the_content', array( __CLASS__, 'auto_content' ), 20 );
+		add_action( 'wp_footer', array( __CLASS__, 'auto_front' ), 5 );
+	}
+
+	/** آیا نبض بازار در این درخواست قبلاً نمایش داده شده؟ (جلوگیری از نمایش دوباره) */
+	private static $pulse_shown = false;
+
+	private static function auto_on( $where ) {
+		return damoon_sig_opt( 'pulse_enabled' ) && in_array( $where, damoon_sig_list( damoon_sig_opt( 'pulse_auto' ), false ), true );
+	}
+
+	/** زیر صفحه‌هایی که ستاپ‌ساز یا اسکن ربات دارند، نبض بازار خودکار اضافه می‌شود. */
+	public static function auto_content( $content ) {
+		if ( self::$pulse_shown || is_admin() || ! is_singular() || ! in_the_loop() || ! is_main_query() || ! self::auto_on( 'robot' ) ) {
+			return $content;
+		}
+		$raw = (string) get_post_field( 'post_content', get_the_ID() );
+		if ( has_shortcode( $raw, 'damoon_pulse' ) || ( ! has_shortcode( $raw, 'damoon_scan' ) && ! has_shortcode( $raw, 'damoon_signal' ) ) ) {
+			return $content;
+		}
+		return $content . self::sc_pulse( array( 'theme' => false !== strpos( $raw, 'theme="dark"' ) ? 'dark' : '' ) );
+	}
+
+	/**
+	 * صفحهٔ اصلی: قالب‌ها معمولاً the_content را صدا نمی‌زنند، پس بخش در فوتر چاپ می‌شود
+	 * و با اسکریپت کوچک بعد از عنصر انتخابی (pulse_anchor) یا قبل از فوتر سایت جابه‌جا می‌شود.
+	 */
+	public static function auto_front() {
+		if ( self::$pulse_shown || is_admin() || ! is_front_page() || ! self::auto_on( 'front' ) ) {
+			return;
+		}
+		$html = self::sc_pulse( array( 'theme' => 'dark' ) );
+		if ( '' === $html ) {
+			return;
+		}
+		$anchor = (string) damoon_sig_opt( 'pulse_anchor' );
+		echo '<div id="dmn-pulse-auto" class="dmn-auto">' . $html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- خروجی شورت‌کد escape شده است
+		?>
+		<script>
+		(function () {
+			var box = document.getElementById('dmn-pulse-auto');
+			if (!box) { return; }
+			var anchor = null;
+			try { anchor = <?php echo wp_json_encode( $anchor ); ?> ? document.querySelector(<?php echo wp_json_encode( $anchor ); ?>) : null; } catch (e) { anchor = null; }
+			if (anchor && anchor.parentNode) { anchor.parentNode.insertBefore(box, anchor.nextSibling); return; }
+			var footer = document.querySelector('body > footer, .site-footer, footer#colophon, #footer, footer');
+			if (footer && footer.parentNode) { footer.parentNode.insertBefore(box, footer); }
+		})();
+		</script>
+		<?php
 	}
 
 	private static function assets() {
@@ -188,6 +238,7 @@ class Damoon_UI {
 		if ( ! damoon_sig_opt( 'pulse_enabled' ) ) {
 			return '';
 		}
+		self::$pulse_shown = true;
 		$symbols = damoon_sig_symbols();
 		$symbol  = strtoupper( (string) $atts['symbol'] );
 		$fixed   = in_array( $symbol, $symbols, true );

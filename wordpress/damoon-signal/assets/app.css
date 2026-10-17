@@ -153,6 +153,8 @@ a.dmn-btn { display: inline-block; text-decoration: none; }
 
 
 /* ---------- نبض بازار ---------- */
+.dmn-auto { padding: 0 16px; clear: both; }
+.dmn-auto .dmn-pulse { max-width: 1180px; }
 .dmn-pulse-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
 .dmn-pulse-head .dmn-title { margin: 0; font-size: 1.2rem; }
 .dmn-pulse-head .dmn-sub { margin-inline-start: auto; font-size: .85rem; }
