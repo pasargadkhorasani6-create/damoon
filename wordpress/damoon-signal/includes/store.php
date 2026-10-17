@@ -28,9 +28,40 @@ class Damoon_Store {
 		damoon_sig_schedule();
 		if ( get_option( 'damoon_sig_ver' ) !== DAMOON_SIG_VER ) {
 			update_option( 'damoon_sig_ver', DAMOON_SIG_VER );
+			self::repair_options();
 			// بعد از نصب یا به‌روزرسانی، اولین اسکن بلافاصله انجام شود تا صفحه‌ها خالی نمانند.
 			wp_schedule_single_event( time(), 'damoon_sig_scan' );
 			wp_schedule_single_event( time() + 30, 'damoon_sig_pulse' );
+		}
+	}
+
+	/**
+	 * ترمیم یک‌بارهٔ تنظیماتی که باگ نسخه‌های 0.4.0 و 0.4.1 خالی کرده بود
+	 * (چک‌باکس‌های منابع نبض بازار هنگام اولین ذخیره پاک می‌شدند)، و پراکسی نامعتبر.
+	 */
+	public static function repair_options() {
+		$opts = get_option( 'damoon_sig_options' );
+		if ( ! is_array( $opts ) ) {
+			return;
+		}
+		$d       = damoon_sig_defaults();
+		$changed = false;
+		foreach ( array( 'pulse_sources', 'pulse_auto' ) as $k ) {
+			if ( isset( $opts[ $k ] ) && '' === $opts[ $k ] ) {
+				$opts[ $k ] = $d[ $k ];
+				$changed    = true;
+			}
+		}
+		if ( ! empty( $opts['pulse_proxy'] ) && preg_match( '#\.js$|^https://docs/#i', (string) $opts['pulse_proxy'] ) ) {
+			$opts['pulse_proxy'] = '';
+			$changed             = true;
+		}
+		if ( $changed ) {
+			// مستقیم در دیتابیس، بدون عبور دوباره از sanitize.
+			global $wpdb;
+			$wpdb->update( $wpdb->options, array( 'option_value' => maybe_serialize( $opts ) ), array( 'option_name' => 'damoon_sig_options' ) );
+			wp_cache_delete( 'damoon_sig_options', 'options' );
+			wp_cache_delete( 'alloptions', 'options' );
 		}
 	}
 

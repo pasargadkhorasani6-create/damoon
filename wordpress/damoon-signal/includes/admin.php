@@ -574,11 +574,11 @@ class Damoon_Admin {
 
 		$access               = (string) ( $in['access'] ?? '' );
 		$out['access']        = in_array( $access, array( 'public', 'members', 'roles' ), true ) ? $access : 'public';
-		$roles                = array_intersect( array_map( 'sanitize_key', (array) ( $in['allowed_roles'] ?? array() ) ), array_keys( wp_roles()->get_names() ) );
+		$roles                = array_intersect( array_map( 'sanitize_key', damoon_sig_input_list( $in['allowed_roles'] ?? array() ) ), array_keys( wp_roles()->get_names() ) );
 		$out['allowed_roles'] = $roles ? implode( ',', $roles ) : 'administrator';
 
 		$out['auto_scan'] = empty( $in['auto_scan'] ) ? 0 : 1;
-		$tfs              = array_intersect( array_map( 'sanitize_text_field', (array) ( $in['scan_tfs'] ?? array() ) ), array_keys( Damoon_Market::TF ) );
+		$tfs              = array_intersect( array_map( 'sanitize_text_field', damoon_sig_input_list( $in['scan_tfs'] ?? array() ) ), array_keys( Damoon_Market::TF ) );
 		$out['scan_tfs']  = $tfs ? implode( ',', $tfs ) : $d['scan_tfs'];
 
 		$out['tg_enabled']  = empty( $in['tg_enabled'] ) ? 0 : 1;
@@ -597,7 +597,7 @@ class Damoon_Admin {
 		$out['site_secret']  = self::secret( $in, 'site_secret', $prev, '/^[^\s,:]{32,256}$/', 'Secret سایت دامون (حداقل ۳۲ کاراکتر)' );
 
 		$out['pulse_enabled'] = empty( $in['pulse_enabled'] ) ? 0 : 1;
-		$srcs                 = array_intersect( array_map( 'sanitize_key', (array) ( $in['pulse_sources'] ?? array() ) ), array_keys( Damoon_Pulse::SOURCES ) );
+		$srcs                 = array_intersect( array_map( 'sanitize_key', damoon_sig_input_list( $in['pulse_sources'] ?? array() ) ), array_keys( Damoon_Pulse::SOURCES ) );
 		$out['pulse_sources'] = $srcs ? implode( ',', $srcs ) : '';
 		$feeds                = array();
 		foreach ( preg_split( '/[\s]+/', (string) ( $in['pulse_news_feeds'] ?? '' ) ) as $f ) {
@@ -608,13 +608,17 @@ class Damoon_Admin {
 			}
 		}
 		$out['pulse_news_feeds'] = implode( "\n", array_slice( array_unique( $feeds ), 0, 5 ) );
-		$auto                    = array_intersect( array_map( 'sanitize_key', (array) ( $in['pulse_auto'] ?? array() ) ), array( 'front', 'robot' ) );
+		$auto                    = array_intersect( array_map( 'sanitize_key', damoon_sig_input_list( $in['pulse_auto'] ?? array() ) ), array( 'front', 'robot' ) );
 		$out['pulse_auto']       = implode( ',', $auto );
 		$anchor                  = trim( wp_strip_all_tags( (string) ( $in['pulse_anchor'] ?? '' ) ) );
 		// فقط انتخابگر CSS ساده (بدون کاراکترهایی که از رشتهٔ JS بیرون بزنند).
 		$out['pulse_anchor']     = preg_match( '/^[A-Za-z0-9_\-#.\[\]=:>\s"\'()*~+^$|]{1,120}$/', $anchor ) && false === strpos( $anchor, '</' ) ? $anchor : '';
 		$proxy                   = self::urls( $in['pulse_proxy'] ?? '', 1 );
 		$out['pulse_proxy']      = $proxy ? $proxy[0] : '';
+		if ( $out['pulse_proxy'] && ( preg_match( '#\.js$#i', $out['pulse_proxy'] ) || ! preg_match( '#^https://[^/]+\.[^/]+#', $out['pulse_proxy'] ) ) ) {
+			add_settings_error( 'damoon_sig_options', 'pulse_proxy', 'پراکسی باید آدرس Worker ساخته‌شده در Cloudflare باشد (مثل https://damoon-proxy.yourname.workers.dev)، نه نام فایل docs/cloudflare-worker.js. پراکسی خالی شد.' );
+			$out['pulse_proxy'] = '';
+		}
 		if ( $out['pulse_enabled'] !== (int) $prev['pulse_enabled'] || $out['pulse_sources'] !== (string) $prev['pulse_sources'] ) {
 			// منابع تغییر کرد؛ داده‌ی تازه در اجرای بعدی کرون ساخته می‌شود.
 			wp_schedule_single_event( time() + 5, 'damoon_sig_pulse' );

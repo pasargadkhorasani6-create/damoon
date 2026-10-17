@@ -201,5 +201,6 @@ check( 'too few votes: no percentage, no verdict', null === $few['social']['bull
 $none = Damoon_Pulse::aggregate( 'BTCUSDT', $social, array(), null, null, array(), $now );
 check( 'no damoon setup: no aligned list', null === $none['damoon'] && array() === $none['aligned'] && null === $none['versus'] );
 
+// تست‌های تنظیمات جداگانه: php wordpress/tests/settings.php
 echo $fails ? "\n{$fails} test(s) failed\n" : "\nall passed\n";
 exit( $fails ? 1 : 0 );
