@@ -414,13 +414,20 @@ class Damoon_Pulse {
 		$social  = array();
 		$news    = array();
 		$errors  = array();
+		$fetched = array();
+
+		if ( ! $enabled ) {
+			$errors['config'] = 'هیچ منبعی در «تنظیمات ← نبض بازار ← منابع» انتخاب نشده است.';
+		}
 
 		if ( in_array( 'stocktwits', $enabled, true ) ) {
 			$j = self::json( 'https://api.stocktwits.com/api/2/streams/symbol/' . rawurlencode( $base . '.X' ) . '.json' );
 			if ( is_wp_error( $j ) ) {
 				$errors['stocktwits'] = $j->get_error_message();
 			} else {
-				$social = array_merge( $social, self::parse_stocktwits( $j ) );
+				$got                   = self::parse_stocktwits( $j );
+				$fetched['stocktwits'] = count( $got );
+				$social                = array_merge( $social, $got );
 			}
 		}
 
@@ -430,7 +437,9 @@ class Damoon_Pulse {
 			if ( is_wp_error( $j ) ) {
 				$errors['reddit'] = $j->get_error_message();
 			} else {
-				$social = array_merge( $social, self::parse_reddit( $j ) );
+				$got               = self::parse_reddit( $j );
+				$fetched['reddit'] = count( $got );
+				$social            = array_merge( $social, $got );
 			}
 		}
 
@@ -447,6 +456,7 @@ class Damoon_Pulse {
 				// فیدهای عمومی بر اساس نام رمزارز فیلتر می‌شوند؛ فیدهای جست‌وجو خودشان مرتبط‌اند.
 				$news = array_merge( $news, self::parse_rss( $xml, $templ ? array() : $kw ) );
 			}
+			$fetched['news'] = count( $news );
 			if ( $fails && ! $news ) {
 				$errors['news'] = implode( ' | ', $fails );
 			}
@@ -462,7 +472,11 @@ class Damoon_Pulse {
 			}
 		}
 
-		return self::aggregate( $symbol, $social, $news, $fng, $damoon, $errors, time() );
+		$data            = self::aggregate( $symbol, $social, $news, $fng, $damoon, $errors, time() );
+		$data['enabled'] = $enabled;
+		// تعداد خام دریافتی از هر منبع (پیش از فیلتر ۲۴ ساعت) برای عیب‌یابی در پیشخوان.
+		$data['fetched'] = $fetched + ( $fng ? array( 'fng' => 1 ) : array() );
+		return $data;
 	}
 
 	/** خلاصهٔ کش‌شده؛ اگر نبود (و $fetch=true) همان لحظه گرفته می‌شود. */

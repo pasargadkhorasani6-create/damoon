@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Damoon Signal
  * Description: تولید ستاپ معاملاتی کریپتو (جهت، ورود، حد ضرر، هدف) با موتور قانون‌محور و کارنامهٔ شفاف. فقط آموزشی و معاملهٔ کاغذی.
- * Version: 0.4.2
+ * Version: 0.4.3
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: damoon-signal
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DAMOON_SIG_VER', '0.4.2' );
+define( 'DAMOON_SIG_VER', '0.4.3' );
 define( 'DAMOON_SIG_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 

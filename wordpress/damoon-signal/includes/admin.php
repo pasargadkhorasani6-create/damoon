@@ -479,6 +479,11 @@ class Damoon_Admin {
 				<a class="button" href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank">مشاهدهٔ صفحهٔ اصلی</a>
 				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '-settings' ) ); ?>">تنظیمات</a>
 			</p>
+			<?php $srcs = Damoon_Pulse::sources(); ?>
+			<?php if ( ! $srcs ) : ?>
+				<div class="notice notice-error inline"><p><b>هیچ منبعی انتخاب نشده است</b>؛ در «تنظیمات ← نبض بازار ← منابع» تیک منابع را بزنید و ذخیره کنید.</p></div>
+			<?php endif; ?>
+			<p>منابع فعال: <b><?php echo esc_html( $srcs ? implode( '، ', array_map( function ( $k ) { return Damoon_Pulse::SOURCES[ $k ]; }, $srcs ) ) : 'هیچ‌کدام' ); ?></b></p>
 			<p>
 				محل نمایش:
 				<?php echo esc_html( $auto ? implode( '، ', array_map( function ( $a ) { return 'front' === $a ? 'صفحهٔ اصلی (خودکار)' : 'صفحه‌های ربات (خودکار)'; }, $auto ) ) : 'فقط جایی که شورت‌کد گذاشته شده' ); ?>
@@ -486,7 +491,7 @@ class Damoon_Admin {
 				— اجرای بعدی کرون: <span dir="ltr"><?php echo $next ? esc_html( wp_date( 'H:i:s', $next ) ) : 'زمان‌بندی نشده'; ?></span>
 			</p>
 			<table class="widefat striped" style="max-width:1100px">
-				<thead><tr><th>نماد</th><th>آخرین به‌روزرسانی</th><th>نظرات ۲۴ ساعت</th><th>خرید / فروش</th><th>اخبار</th><th>ربات</th><th>منابع در دسترس نبود</th></tr></thead>
+				<thead><tr><th>نماد</th><th>آخرین به‌روزرسانی</th><th>نظرات ۲۴ ساعت</th><th>خرید / فروش</th><th>اخبار</th><th>ربات</th><th>دریافتی از هر منبع</th><th>منابع در دسترس نبود</th></tr></thead>
 				<tbody>
 				<?php
 				foreach ( array_slice( damoon_sig_symbols(), 0, Damoon_Pulse::MAX_SYMS ) as $sym ) :
@@ -495,13 +500,24 @@ class Damoon_Admin {
 					<tr>
 						<td dir="ltr"><?php echo esc_html( $sym ); ?></td>
 						<?php if ( ! $d ) : ?>
-							<td colspan="6">هنوز داده‌ای گرفته نشده؛ «به‌روزرسانی الان» را بزنید.</td>
+							<td colspan="7">هنوز داده‌ای گرفته نشده؛ «به‌روزرسانی الان» را بزنید.</td>
 						<?php else : ?>
 							<td dir="ltr"><?php echo esc_html( wp_date( 'Y-m-d H:i', (int) $d['updated'] ) ); ?></td>
 							<td><?php echo (int) $d['social']['total']; ?></td>
 							<td><?php echo (int) $d['social']['bull'] . ' / ' . (int) $d['social']['bear']; ?></td>
 							<td><?php echo (int) $d['news']['total']; ?></td>
 							<td><?php echo esc_html( $d['damoon'] && $d['damoon']['direction'] ? ( 'long' === $d['damoon']['direction'] ? 'خرید' : 'فروش' ) : 'خنثی' ); ?></td>
+							<td dir="ltr" style="text-align:left">
+								<?php
+								if ( ! isset( $d['fetched'] ) ) {
+									echo 'نسخهٔ قبلی — دوباره به‌روزرسانی کنید';
+								} else {
+									foreach ( (array) ( $d['enabled'] ?? array() ) as $src ) {
+										echo '<div>' . esc_html( $src ) . ': ' . ( isset( $d['fetched'][ $src ] ) ? (int) $d['fetched'][ $src ] : '✕' ) . '</div>';
+									}
+								}
+								?>
+							</td>
 							<td dir="ltr" style="text-align:left">
 								<?php
 								foreach ( $d['errors'] as $src => $msg ) {
