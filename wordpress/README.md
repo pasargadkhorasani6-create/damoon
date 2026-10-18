@@ -8,7 +8,7 @@
 ## نصب و به‌روزرسانی
 
 ```bash
-cd wordpress && ./build.sh        # فایل dist/damoon-signal-<نسخه>.zip ساخته می‌شود
+cd wordpress && ./build.sh        # فایل‌های dist/damoon-signal-<نسخه>.zip و dist/damoon-boost-<نسخه>.zip ساخته می‌شوند
 ```
 
 در پیشخوان وردپرس: افزونه‌ها ← افزودن ← بارگذاری افزونه ← فایل zip ← «جایگزینی نسخهٔ فعلی با نسخهٔ بارگذاری‌شده».
@@ -22,6 +22,38 @@ cd wordpress && ./build.sh        # فایل dist/damoon-signal-<نسخه>.zip �
 | `[damoon_record]` | کارنامه: آمار، منحنی تجمعی R، جدول همهٔ سیگنال‌ها |
 | `[damoon_scan tf="4h" theme="dark"]` | «اسکن زندهٔ ربات»: آخرین وضعیت هر نماد (خرید / فروش / خنثی)، قیمت و تغییر ۲۴ ساعته |
 | `[damoon_pulse theme="dark"]` | «نبض بازار»: حجم نظرات شبکه‌های اجتماعی، نسبت خرید/فروش، نظرات هم‌سو با ربات، اخبار و شاخص ترس و طمع، به‌صورت زنده |
+
+## افزونهٔ Damoon Boost — سرعت، امنیت، سئو (۱.۰.۰)
+
+افزونهٔ جدا برای کل سایت (`dist/damoon-boost-<نسخه>.zip`)؛ در «تنظیمات ← دامون بوست» هر مورد جدا خاموش/روشن می‌شود
+و جدول «وضعیت سایت» مشکل‌های رایج را نشان می‌دهد (HTTPS، بسته‌بودن سایت برای گوگل، پیوند یکتا، کش، کرون، DISALLOW_FILE_EDIT،
+کاربر admin، نسخهٔ PHP، WebP).
+
+| بخش | کارها |
+|---|---|
+| سرعت | حذف ایموجی، wp-embed، jquery-migrate (همان پیام JQMIGRATE)، dashicons مهمان و تگ‌های اضافی head؛ Heartbeat کم‌مصرف؛ preconnect؛ defer اختیاری اسکریپت‌ها (jQuery، وابسته‌هایش و اسکریپت‌های دارای کد inline defer نمی‌شوند) |
+| امنیت | هدرهای امنیتی و HSTS، بستن کامل XML-RPC، بستن فهرست کاربران REST برای مهمان و ‎?author=‎ و صفحهٔ نویسنده، ۵ تلاش ورود ناموفق = ۳۰ دقیقه قفل، پیام خطای یکسان ورود، خاموش‌کردن Application Passwords |
+| سئو | توضیح متا (صفحهٔ اصلی برای هر زبان جدا)، Open Graph و کارت X (پیش‌نمایش لینک در تلگرام)، og:locale برای سه زبان، داده‌ی ساختاریافتهٔ WebSite و Organization، noindex نتایج جست‌وجو، robots.txt، حذف کاربران از نقشهٔ سایت، بستن صفحه‌های پیوست |
+
+اگر Yoast، Rank Math، AIOSEO یا SEOPress فعال باشد، بخش سئو خودکار کنار می‌رود تا تگ تکراری ساخته نشود.
+دامون سیگنال هم از این نسخه استایلش را در head بارگذاری می‌کند (بدون جابه‌جایی صفحه) و اسکریپتش defer است.
+
+## استقرار روی سرور خارجی (پوشهٔ `deploy`)
+
+1. **nginx:** `deploy/nginx-wordpress.conf` — HTTPS و انتقال www، IP واقعی پشت Cloudflare، کش صفحهٔ FastCGI
+   (کاربر واردشده، سبد خرید و پیشخوان کش نمی‌شوند؛ هدر `X-Cache`)، gzip، کش یک‌ساله فایل‌های ثابت، محدودیت تلاش ورود و REST،
+   بستن xmlrpc.php، wp-config.php، فایل‌های مخفی و اجرای PHP در uploads. روی nginx واقعی با PHP-FPM و وردپرس امتحان شده است.
+2. **wp-config:** خط‌های `deploy/wp-config-production.php` (دیباگ خاموش، DISALLOW_FILE_EDIT، کرون واقعی و…). کلیدهای امنیتی را تازه بسازید.
+3. **کرون:** `* * * * * cd /var/www/damoon && php wp-cron.php > /dev/null 2>&1` (کاربر www-data).
+4. **Cloudflare:** پراکسی نارنجی روشن؛ SSL/TLS = Full (strict)؛ Always Use HTTPS؛ Brotli و HTTP/3 روشن؛ Rocket Loader **خاموش**
+   (اسکریپت‌ها را خراب می‌کند). برای اینکه کسی Cloudflare را دور نزند، روی سرور پورت ۴۴۳ را فقط برای IPهای Cloudflare باز کنید.
+5. **سرور:** PHP 8.3 با OPcache، و ترجیحاً Redis + افزونهٔ Redis Object Cache. افزونه‌ها و قالب را به‌روز نگه دارید و
+   افزونه‌های غیرفعال را حذف کنید. پشتیبان‌گیری روزانه از دیتابیس و wp-content.
+
+## نسخهٔ 0.5.1
+
+- استایل افزونه در صفحه‌هایی که بخش دامون دارند در head بارگذاری می‌شود (قبلاً در فوتر بود و صفحه بعد از نمایش جابه‌جا می‌شد).
+- اسکریپت افزونه با defer بارگذاری می‌شود و رندر صفحه را متوقف نمی‌کند.
 
 ## نسخهٔ 0.5.0 — سه‌زبانه (فارسی، انگلیسی، روسی) با تشخیص خودکار
 
@@ -209,6 +241,8 @@ add_filter( 'damoon_sig_denied_html', function ( $html, $logged_in ) {
 
 ```bash
 php wordpress/tests/run.php
+php wordpress/tests/settings.php
+php wordpress/tests/boost.php
 ```
 
 این تست‌ها منطق نتیجه‌گیری سیگنال، موتور، بدنهٔ رویدادها، و سازگاری امضای HMAC با `web/src/lib/bot/hmac.ts` را بررسی می‌کنند.

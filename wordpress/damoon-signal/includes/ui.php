@@ -41,6 +41,22 @@ class Damoon_UI {
 		add_shortcode( 'damoon_pulse', array( __CLASS__, 'sc_pulse' ) );
 		add_filter( 'the_content', array( __CLASS__, 'auto_content' ), 20 );
 		add_action( 'wp_footer', array( __CLASS__, 'auto_front' ), 5 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'early_css' ) );
+	}
+
+	/**
+	 * استایل در head وقتی صفحه بخش دامون دارد؛ اگر از داخل شورت‌کد صدا زده شود در فوتر چاپ می‌شود
+	 * و صفحه بعد از نمایش جابه‌جا می‌شود (CLS).
+	 */
+	public static function early_css() {
+		$need = is_front_page() && self::auto_on( 'front' );
+		if ( ! $need && is_singular() ) {
+			$raw = (string) get_post_field( 'post_content', get_queried_object_id() );
+			$need = false !== strpos( $raw, '[damoon_' );
+		}
+		if ( $need || apply_filters( 'damoon_sig_load_css', false ) ) {
+			wp_enqueue_style( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.css', array(), DAMOON_SIG_VER );
+		}
 	}
 
 	/** آیا نبض بازار در این درخواست قبلاً نمایش داده شده؟ (جلوگیری از نمایش دوباره) */
@@ -93,7 +109,16 @@ class Damoon_UI {
 
 	private static function assets() {
 		wp_enqueue_style( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.css', array(), DAMOON_SIG_VER );
-		wp_enqueue_script( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.js', array(), DAMOON_SIG_VER, true );
+		wp_enqueue_script(
+			'damoon-signal',
+			DAMOON_SIG_URL . 'assets/app.js',
+			array(),
+			DAMOON_SIG_VER,
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
 		wp_localize_script(
 			'damoon-signal',
 			'DamoonSig',
