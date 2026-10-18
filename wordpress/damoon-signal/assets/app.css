@@ -20,7 +20,7 @@
 	border-radius: 14px;
 	font: inherit;
 	line-height: 1.7;
-	text-align: right;
+	text-align: start;
 }
 .dmn *, .dmn *::before, .dmn *::after { box-sizing: border-box; }
 
@@ -78,7 +78,7 @@
 .dmn-chart-msg {
 	position: absolute; inset: 0; margin: 0;
 	display: flex; align-items: center; justify-content: center;
-	padding: 16px; text-align: center; direction: rtl; color: var(--dmn-muted);
+	padding: 16px; text-align: center; color: var(--dmn-muted);
 }
 .dmn-chart-msg[hidden] { display: none; }
 
@@ -120,7 +120,7 @@ a.dmn-btn { display: inline-block; text-decoration: none; }
 
 .dmn-table-wrap { overflow-x: auto; background: var(--dmn-panel); border: 1px solid var(--dmn-line); border-radius: 12px; }
 .dmn-table { width: 100%; min-width: 640px; margin: 0; border-collapse: collapse; font-size: .9rem; }
-.dmn-table th, .dmn-table td { padding: 9px 12px; border: 0; border-bottom: 1px solid var(--dmn-line); text-align: right; white-space: nowrap; background: transparent; }
+.dmn-table th, .dmn-table td { padding: 9px 12px; border: 0; border-bottom: 1px solid var(--dmn-line); text-align: start; white-space: nowrap; background: transparent; }
 .dmn-table th { color: var(--dmn-muted); font-weight: 600; }
 .dmn-table tr:last-child td { border-bottom: 0; }
 
@@ -143,6 +143,7 @@ a.dmn-btn { display: inline-block; text-decoration: none; }
 .dmn-scan-item:last-child { border-bottom: 0; }
 .dmn-scan-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .dmn-scan-name b { font-size: 1.05rem; text-align: right; }
+.dmn[dir="ltr"] .dmn-scan-name b { text-align: left; }
 .dmn-scan-name span, .dmn-scan-price span { font-size: .82rem; color: var(--dmn-muted); }
 .dmn-scan-price { display: flex; flex-direction: column; align-items: flex-start; font-variant-numeric: tabular-nums; }
 .dmn-scan-price .is-up { color: var(--dmn-up); }

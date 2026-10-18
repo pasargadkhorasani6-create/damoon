@@ -21,6 +21,7 @@ function get_option( $k ) {
 }
 
 $dir = dirname( __DIR__ ) . '/damoon-signal/includes/';
+require $dir . 'lang.php';
 require $dir . 'market.php';
 require $dir . 'engine.php';
 require $dir . 'store.php';
@@ -120,11 +121,73 @@ $a = Damoon_Engine::from_candles( $rally, 'X', '1h' );
 check( 'stretched rally gives short mean reversion', $a['setup'] && 'short' === $a['setup']['direction'] && 'mean_reversion' === $a['setup']['strategy'] );
 check( '24h change computed', abs( $a['change_24h'] - ( $rally[299]['close'] / $rally[275]['close'] - 1 ) * 100 ) < 0.01 );
 check( 'scan snapshot', 'short' === Damoon_Scanner::snapshot( $a )['direction'] && null === Damoon_Scanner::snapshot( $a )['reason'] );
+check( 'thesis stored in Persian', false !== strpos( $a['thesis'], 'بازگشت به میانگین' ) && false !== strpos( $a['thesis'], '٪' ) );
+$en = Damoon_Engine::localize( $a, 'en' );
+$ru = Damoon_Engine::localize( $a, 'ru' );
+check( 'thesis localized to English and Russian', 0 === strpos( $en['thesis'], 'Mean reversion: price is ' ) && false !== strpos( $en['thesis'], 'ATR above EMA20' ) && false !== strpos( $en['thesis'], '% of price' ) && 0 === strpos( $ru['thesis'], 'Возврат к средней' ) );
 check( 'short levels ordered', $a['setup']['stop'] > $a['setup']['entry'] && $a['setup']['target'] < $a['setup']['entry'] );
 
 $flat = series( 300, function ( $i ) { return 100 * ( 1 + 0.01 * sin( $i / 3 ) ); } );
 $a    = Damoon_Engine::from_candles( $flat, 'X', '1h' );
 check( 'range market without stretch gives no setup', null === $a['setup'] && 'no_setup' === $a['reason']['code'] );
+$en = Damoon_Engine::localize( $a, 'en' );
+check( 'reject reason keeps args and localizes', 2 === count( $a['reason']['args'] ) && 0 === strpos( $a['reason']['text'], 'در حال حاضر' ) && false !== strpos( $en['reason']['text'], 'RSI is ' . $a['reason']['args'][1] ) && 'no_setup' === $en['reason']['code'] );
+
+/* ---------- چندزبانه ---------- */
+
+$all = Damoon_Lang::all_strings();
+$missing = array();
+foreach ( array( 'php', 'js' ) as $part ) {
+	foreach ( $all[ $part ] as $k => $row ) {
+		foreach ( Damoon_Lang::LANGS as $l ) {
+			if ( ! isset( $row[ $l ] ) || '' === trim( $row[ $l ] ) ) {
+				$missing[] = "$part.$k.$l";
+			}
+		}
+		// تعداد جای‌گذاری‌ها در هر سه زبان یکسان باشد.
+		$counts = array_map(
+			function ( $t ) use ( $part ) {
+				return 'php' === $part ? preg_match_all( '/%(\d\$)?s/', $t ) : preg_match_all( '/\{\d+\}/', $t );
+			},
+			$row
+		);
+		if ( count( array_unique( $counts ) ) > 1 ) {
+			$missing[] = "$part.$k placeholders";
+		}
+	}
+}
+check( 'every string has fa, en, ru with same placeholders', array() === $missing ) || print_r( $missing );
+check( 'no Persian text in en/ru strings', ! preg_grep( '/[\x{0600}-\x{06FF}]/u', array_merge( array_column( $all['php'], 'en' ), array_column( $all['php'], 'ru' ), array_column( $all['js'], 'en' ), array_column( $all['js'], 'ru' ) ) ) );
+
+$map = Damoon_Lang::parse_map( "fa: IR, af\nru: RU BY,KZ\nde: DE\nen: US, IR\n garbage" );
+check( 'parse_map', array( 'IR' => 'fa', 'AF' => 'fa', 'RU' => 'ru', 'BY' => 'ru', 'KZ' => 'ru', 'US' => 'en' ) === $map );
+
+check( 'country from Cloudflare header', 'RU' === Damoon_Lang::country( array( 'HTTP_CF_IPCOUNTRY' => 'ru' ) ) );
+check( 'unknown and Tor country ignored', '' === Damoon_Lang::country( array( 'HTTP_CF_IPCOUNTRY' => 'XX' ) ) && '' === Damoon_Lang::country( array( 'HTTP_CF_IPCOUNTRY' => 'T1' ) ) && '' === Damoon_Lang::country( array() ) );
+check( 'country falls through to other headers', 'IR' === Damoon_Lang::country( array( 'HTTP_CF_IPCOUNTRY' => 'XX', 'GEOIP_COUNTRY_CODE' => 'IR' ) ) );
+
+check( 'browser_lang honours order', 'ru' === Damoon_Lang::browser_lang( 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7' ) );
+check( 'browser_lang honours q', 'fa' === Damoon_Lang::browser_lang( 'de-DE,en;q=0.5,fa;q=0.8' ) );
+check( 'browser_lang skips q=0 and unsupported', '' === Damoon_Lang::browser_lang( 'de,fr;q=0.9,ru;q=0' ) && '' === Damoon_Lang::browser_lang( '' ) );
+
+$map = Damoon_Lang::parse_map( "fa: IR\nru: RU, KZ\nen: US" );
+$d   = Damoon_Lang::detect( array( 'HTTP_CF_IPCOUNTRY' => 'KZ', 'HTTP_ACCEPT_LANGUAGE' => 'en-US' ), $map, 'en' );
+check( 'detect: country wins over browser', 'ru' === $d['lang'] && 'country' === $d['source'] && 'KZ' === $d['country'] );
+$d = Damoon_Lang::detect( array( 'HTTP_CF_IPCOUNTRY' => 'DE', 'HTTP_ACCEPT_LANGUAGE' => 'fa-IR,fa;q=0.9' ), $map, 'en' );
+check( 'detect: unmapped country uses browser', 'fa' === $d['lang'] && 'browser' === $d['source'] && 'DE' === $d['country'] );
+$d = Damoon_Lang::detect( array( 'HTTP_ACCEPT_LANGUAGE' => 'de-DE' ), $map, 'ru' );
+check( 'detect: default when nothing matches', 'ru' === $d['lang'] && 'default' === $d['source'] );
+$d = Damoon_Lang::detect( array(), $map, 'xx' );
+check( 'detect: invalid default falls back to en', 'en' === $d['lang'] );
+
+Damoon_Lang::$override = 'ru';
+check( 't() uses override language and sprintf', 'Обновлено: 12:30' === Damoon_Lang::t( 'updated_at', '12:30' ) && 'ltr' === Damoon_Lang::dir() && 'ru-RU' === Damoon_Lang::locale() );
+check( 'digits stay Latin outside Persian', '1,234.5' === Damoon_Lang::digits( '1,234.5' ) );
+Damoon_Lang::$override = 'fa';
+check( 'Persian: rtl and Persian digits', 'rtl' === Damoon_Lang::dir() && '۱٬۲۳۴٫۵' === Damoon_Lang::digits( '1,234.5' ) && 'خرید' === Damoon_Lang::js_strings()['buy'] );
+Damoon_Lang::$override = null;
+check( 'without a multilingual plugin defaults to fa', 'fa' === Damoon_Lang::current() );
+check( 'unknown key returns key', 'nope' === Damoon_Lang::t( 'nope' ) );
 
 /* ---------- اسکنر ---------- */
 

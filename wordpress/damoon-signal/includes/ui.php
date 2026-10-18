@@ -13,12 +13,26 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Damoon_UI {
 
+	/** برچسب‌های فارسی برای مدیریت و تلگرام؛ بخش عمومی از tf_labels() استفاده می‌کند. */
 	const TF_LABELS = array(
 		'15m' => '۱۵ دقیقه',
 		'1h'  => '۱ ساعت',
 		'4h'  => '۴ ساعت',
 		'1d'  => 'روزانه',
 	);
+
+	/** برچسب تایم‌فریم‌ها به زبان صفحه. */
+	public static function tf_labels() {
+		$out = array();
+		foreach ( array_keys( self::TF_LABELS ) as $k ) {
+			$out[ $k ] = Damoon_Lang::t( 'tf_' . $k );
+		}
+		return $out;
+	}
+
+	private static function dir_attr() {
+		return 'dir="' . esc_attr( Damoon_Lang::dir() ) . '" lang="' . esc_attr( Damoon_Lang::current() ) . '"';
+	}
 
 	public static function init() {
 		add_shortcode( 'damoon_signal', array( __CLASS__, 'sc_signal' ) );
@@ -87,11 +101,15 @@ class Damoon_UI {
 				'root'    => esc_url_raw( rest_url( 'damoon/v1/' ) ),
 				'nonce'   => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 				'symbols' => damoon_sig_symbols(),
-				'tfs'     => self::TF_LABELS,
+				'tfs'     => self::tf_labels(),
+				'lang'    => Damoon_Lang::current(),
+				'locale'  => Damoon_Lang::locale(),
+				't'       => Damoon_Lang::js_strings(),
 			)
 		);
 	}
 
+	/** متن فارسی (تلگرام)؛ بخش عمومی از Damoon_Lang::t( 'disclaimer' ) استفاده می‌کند. */
 	const DISCLAIMER = 'این تحلیل‌ها قطعی نیستند و ممکن است اشتباه باشند. فقط برای آموزش و معاملهٔ کاغذی است و توصیهٔ مالی نیست.';
 
 	public static function sc_signal() {
@@ -101,55 +119,46 @@ class Damoon_UI {
 		self::assets();
 		ob_start();
 		?>
-		<section class="dmn" dir="rtl" data-dmn="signal">
+		<section class="dmn" <?php echo self::dir_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?> data-dmn="signal">
 			<header class="dmn-head">
-				<h2 class="dmn-title">ستاپ‌ساز</h2>
-				<p class="dmn-sub">یک نماد انتخاب کنید. موتور قانون‌محور، جهت، ورود، حد ضرر و هدف را از روی کندل‌های بسته‌شده حساب می‌کند.</p>
+				<h2 class="dmn-title"><?php echo esc_html( Damoon_Lang::t( 'signal_title' ) ); ?></h2>
+				<p class="dmn-sub"><?php echo esc_html( Damoon_Lang::t( 'signal_sub' ) ); ?></p>
 			</header>
 
 			<div class="dmn-controls">
-				<div class="dmn-chips" data-dmn="symbols" role="group" aria-label="نماد"></div>
-				<div class="dmn-seg" data-dmn="tfs" role="group" aria-label="تایم‌فریم"></div>
-				<button type="button" class="dmn-btn" data-dmn="go">ساخت ستاپ</button>
+				<div class="dmn-chips" data-dmn="symbols" role="group" aria-label="<?php echo esc_attr( Damoon_Lang::t( 'symbol' ) ); ?>"></div>
+				<div class="dmn-seg" data-dmn="tfs" role="group" aria-label="<?php echo esc_attr( Damoon_Lang::t( 'timeframe' ) ); ?>"></div>
+				<button type="button" class="dmn-btn" data-dmn="go"><?php echo esc_html( Damoon_Lang::t( 'build_setup' ) ); ?></button>
 			</div>
 
 			<div class="dmn-body">
 				<div class="dmn-chart">
-					<canvas data-dmn="chart" aria-label="نمودار قیمت"></canvas>
+					<canvas data-dmn="chart" aria-label="<?php echo esc_attr( Damoon_Lang::t( 'price_chart' ) ); ?>"></canvas>
 					<p class="dmn-chart-msg" data-dmn="chart-msg" hidden></p>
 				</div>
 				<div class="dmn-result" data-dmn="result" aria-live="polite">
-					<p class="dmn-empty">برای دیدن ستاپ، روی «ساخت ستاپ» بزنید.</p>
+					<p class="dmn-empty"><?php echo esc_html( Damoon_Lang::t( 'click_build' ) ); ?></p>
 				</div>
 			</div>
 
 			<footer class="dmn-foot">
 				<span data-dmn="quota"></span>
-				<span class="dmn-warn"><?php echo esc_html( self::DISCLAIMER ); ?></span>
+				<span class="dmn-warn"><?php echo esc_html( Damoon_Lang::t( 'disclaimer' ) ); ?></span>
 			</footer>
 		</section>
 		<?php
 		return ob_get_clean();
 	}
 
-	const NAMES = array(
-		'BTC'  => 'بیت‌کوین',
-		'ETH'  => 'اتریوم',
-		'SOL'  => 'سولانا',
-		'BNB'  => 'بایننس‌کوین',
-		'XRP'  => 'ریپل',
-		'ADA'  => 'کاردانو',
-		'DOGE' => 'دوج‌کوین',
-		'TRX'  => 'ترون',
-		'TON'  => 'تون‌کوین',
-		'AVAX' => 'آوالانچ',
-		'LINK' => 'چین‌لینک',
-		'DOT'  => 'پولکادات',
-		'LTC'  => 'لایت‌کوین',
-	);
+	/** نام فارسی/انگلیسی/روسی رمزارز؛ اگر ترجمه‌ای نباشد خود تیکر. */
+	public static function coin_name( $base ) {
+		$name = Damoon_Lang::t( 'coin_' . $base );
+		return 'coin_' . $base === $name ? $base : $name;
+	}
 
+	/** ارقام فارسی فقط در صفحهٔ فارسی. */
 	public static function fa_digits( $s ) {
-		return strtr( (string) $s, array( '0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹', '.' => '٫', ',' => '٬' ) );
+		return Damoon_Lang::digits( $s );
 	}
 
 	/**
@@ -161,25 +170,28 @@ class Damoon_UI {
 			array(
 				'tf'    => '',
 				'theme' => '',
-				'title' => 'اسکن زندهٔ ربات',
+				'title' => '',
 				'limit' => 30,
 			),
 			$atts,
 			'damoon_scan'
 		);
+		if ( '' === $atts['title'] ) {
+			$atts['title'] = Damoon_Lang::t( 'scan_title' );
+		}
 		$items = array_slice( damoon_sig_scan_items( $atts['tf'] ), 0, max( 1, (int) $atts['limit'] ) );
 		$last  = get_option( 'damoon_sig_scan_last' );
 		wp_enqueue_style( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.css', array(), DAMOON_SIG_VER );
 
 		ob_start();
 		?>
-		<section class="dmn dmn-scan<?php echo 'dark' === $atts['theme'] ? ' dmn-dark' : ''; ?>" dir="rtl">
+		<section class="dmn dmn-scan<?php echo 'dark' === $atts['theme'] ? ' dmn-dark' : ''; ?>" <?php echo self::dir_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?>>
 			<header class="dmn-scan-head">
 				<h3 class="dmn-title"><?php echo esc_html( $atts['title'] ); ?></h3>
 				<span class="dmn-sub">
 					<?php
 					echo esc_html(
-						is_array( $last ) ? 'به‌روزرسانی: ' . self::fa_digits( wp_date( 'H:i', (int) $last['time'] ) ) : 'به‌روزرسانی هر ۱۵ دقیقه'
+						is_array( $last ) ? Damoon_Lang::t( 'updated_at', self::fa_digits( wp_date( 'H:i', (int) $last['time'] ) ) ) : Damoon_Lang::t( 'updated_every' )
 					);
 					?>
 				</span>
@@ -188,7 +200,7 @@ class Damoon_UI {
 				<p class="dmn-empty">
 					<?php
 					$err = get_transient( 'damoon_api_error' );
-					echo esc_html( $err ? 'منبع داده در دسترس نیست؛ اسکن بعدی دوباره تلاش می‌کند.' : 'اولین اسکن هنوز انجام نشده است.' );
+					echo esc_html( Damoon_Lang::t( $err ? 'scan_source_down' : 'scan_first_pending' ) );
 					?>
 				</p>
 			<?php endif; ?>
@@ -196,20 +208,20 @@ class Damoon_UI {
 				<?php
 				foreach ( $items as $it ) :
 					$base  = preg_replace( '/(USDT|USDC|BUSD|FDUSD)$/', '', $it['symbol'] );
-					$name  = self::NAMES[ $base ] ?? $base;
+					$name  = self::coin_name( $base );
 					$dir   = $it['direction'];
-					$label = 'long' === $dir ? 'خرید' : ( 'short' === $dir ? 'فروش' : 'خنثی' );
+					$label = Damoon_Lang::t( 'long' === $dir ? 'buy' : ( 'short' === $dir ? 'sell' : 'neutral' ) );
 					$chg   = $it['change_24h'];
 					?>
 					<li class="dmn-scan-item">
 						<div class="dmn-scan-name">
 							<b dir="ltr"><?php echo esc_html( Damoon_Telegram::pair( $it['symbol'] ) ); ?></b>
-							<span><?php echo esc_html( $name . ' – ' . ( self::TF_LABELS[ $it['tf'] ] ?? $it['tf'] ) ); ?></span>
+							<span><?php echo esc_html( $name . ' – ' . ( self::tf_labels()[ $it['tf'] ] ?? $it['tf'] ) ); ?></span>
 						</div>
 						<div class="dmn-scan-price">
 							<b><?php echo esc_html( self::fa_digits( number_format( (float) $it['price'], (int) $it['decimals'] ) ) ); ?></b>
 							<?php if ( null !== $chg ) : ?>
-								<span class="<?php echo $chg >= 0 ? 'is-up' : 'is-down'; ?>" dir="ltr"><?php echo esc_html( self::fa_digits( ( $chg > 0 ? '+' : '' ) . number_format( (float) $chg, 2 ) ) . '٪' ); ?></span>
+								<span class="<?php echo $chg >= 0 ? 'is-up' : 'is-down'; ?>" dir="ltr"><?php echo esc_html( self::fa_digits( ( $chg > 0 ? '+' : '' ) . number_format( (float) $chg, 2 ) ) . ( 'fa' === Damoon_Lang::current() ? '٪' : '%' ) ); ?></span>
 							<?php endif; ?>
 						</div>
 						<span class="dmn-scan-badge <?php echo esc_attr( $dir ? 'is-' . $dir : 'is-none' ); ?>"><?php echo esc_html( $label ); ?></span>
@@ -230,7 +242,7 @@ class Damoon_UI {
 			array(
 				'symbol' => '',
 				'theme'  => '',
-				'title'  => 'نبض بازار',
+				'title'  => '',
 			),
 			$atts,
 			'damoon_pulse'
@@ -239,6 +251,9 @@ class Damoon_UI {
 			return '';
 		}
 		self::$pulse_shown = true;
+		if ( '' === $atts['title'] ) {
+			$atts['title'] = Damoon_Lang::t( 'pulse_title' );
+		}
 		$symbols = damoon_sig_symbols();
 		$symbol  = strtoupper( (string) $atts['symbol'] );
 		$fixed   = in_array( $symbol, $symbols, true );
@@ -250,22 +265,22 @@ class Damoon_UI {
 
 		ob_start();
 		?>
-		<section class="dmn dmn-pulse<?php echo 'dark' === $atts['theme'] ? ' dmn-dark' : ''; ?>" dir="rtl" data-dmn="pulse"
+		<section class="dmn dmn-pulse<?php echo 'dark' === $atts['theme'] ? ' dmn-dark' : ''; ?>" <?php echo self::dir_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?> data-dmn="pulse"
 			data-symbol="<?php echo esc_attr( $symbol ); ?>" data-fixed="<?php echo $fixed ? '1' : '0'; ?>">
 			<header class="dmn-pulse-head">
 				<h3 class="dmn-title"><?php echo esc_html( $atts['title'] ); ?></h3>
-				<span class="dmn-live" data-dmn="live"><i aria-hidden="true"></i><span>زنده</span></span>
+				<span class="dmn-live" data-dmn="live"><i aria-hidden="true"></i><span><?php echo esc_html( Damoon_Lang::t( 'live' ) ); ?></span></span>
 				<span class="dmn-sub" data-dmn="updated"></span>
 			</header>
 			<?php if ( ! $fixed && count( $symbols ) > 1 ) : ?>
-				<div class="dmn-chips" data-dmn="symbols" role="group" aria-label="نماد"></div>
+				<div class="dmn-chips" data-dmn="symbols" role="group" aria-label="<?php echo esc_attr( Damoon_Lang::t( 'symbol' ) ); ?>"></div>
 			<?php endif; ?>
 			<div data-dmn="body" aria-live="polite">
-				<p class="dmn-empty">در حال دریافت نظرات و اخبار…</p>
+				<p class="dmn-empty"><?php echo esc_html( Damoon_Lang::t( 'pulse_loading' ) ); ?></p>
 			</div>
 			<footer class="dmn-foot">
-				<span>منابع: StockTwits (برچسب خرید/فروش توسط خود کاربران)، Reddit و اخبار (جهت تخمینی با واژه‌ها)، شاخص ترس و طمع alternative.me. فقط نظرات ۲۴ ساعت اخیر شمرده می‌شود.</span>
-				<span class="dmn-warn"><?php echo esc_html( 'نظر کاربران شبکه‌های اجتماعی سیگنال معاملاتی نیست. ' . self::DISCLAIMER ); ?></span>
+				<span><?php echo esc_html( Damoon_Lang::t( 'pulse_sources_note' ) ); ?></span>
+				<span class="dmn-warn"><?php echo esc_html( Damoon_Lang::t( 'pulse_warn' ) . ' ' . Damoon_Lang::t( 'disclaimer' ) ); ?></span>
 			</footer>
 			<?php if ( $initial ) : ?>
 				<script type="application/json" data-dmn="initial"><?php echo wp_json_encode( $initial, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE ); ?></script>
@@ -279,12 +294,12 @@ class Damoon_UI {
 	private static function denied() {
 		wp_enqueue_style( 'damoon-signal', DAMOON_SIG_URL . 'assets/app.css', array(), DAMOON_SIG_VER );
 		if ( is_user_logged_in() ) {
-			$body = '<p>حساب کاربری شما به ستاپ‌ساز دسترسی ندارد.</p>';
+			$body = '<p>' . esc_html( Damoon_Lang::t( 'denied_account' ) ) . '</p>';
 		} else {
 			$url  = wp_login_url( get_permalink() ?: home_url( '/' ) );
-			$body = '<p>ستاپ‌ساز فقط برای اعضا فعال است.</p><p><a class="dmn-btn" href="' . esc_url( $url ) . '">ورود به حساب</a></p>';
+			$body = '<p>' . esc_html( Damoon_Lang::t( 'denied_members' ) ) . '</p><p><a class="dmn-btn" href="' . esc_url( $url ) . '">' . esc_html( Damoon_Lang::t( 'login' ) ) . '</a></p>';
 		}
-		$html = '<section class="dmn dmn-denied" dir="rtl"><header class="dmn-head"><h2 class="dmn-title">ستاپ‌ساز</h2></header>' . $body . '</section>';
+		$html = '<section class="dmn dmn-denied" ' . self::dir_attr() . '><header class="dmn-head"><h2 class="dmn-title">' . esc_html( Damoon_Lang::t( 'signal_title' ) ) . '</h2></header>' . $body . '</section>';
 		return (string) apply_filters( 'damoon_sig_denied_html', $html, is_user_logged_in() );
 	}
 
@@ -292,28 +307,32 @@ class Damoon_UI {
 		self::assets();
 		ob_start();
 		?>
-		<section class="dmn" dir="rtl" data-dmn="record">
+		<section class="dmn" <?php echo self::dir_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?> data-dmn="record">
 			<header class="dmn-head">
-				<h2 class="dmn-title">کارنامه</h2>
-				<p class="dmn-sub">همهٔ ستاپ‌های صادرشده، برنده و بازنده، بدون حذف. ورود با قیمت بسته‌شدن کندل سیگنال و بدون کارمزد محاسبه می‌شود.</p>
+				<h2 class="dmn-title"><?php echo esc_html( Damoon_Lang::t( 'record_title' ) ); ?></h2>
+				<p class="dmn-sub"><?php echo esc_html( Damoon_Lang::t( 'record_sub' ) ); ?></p>
 			</header>
 			<div class="dmn-stats" data-dmn="stats"></div>
 			<div class="dmn-curve" data-dmn="curve-wrap" hidden>
 				<div class="dmn-curve-head">
-					<span>منحنی تجمعی نتیجه (R)</span>
+					<span><?php echo esc_html( Damoon_Lang::t( 'curve_title' ) ); ?></span>
 					<span class="dmn-num" data-dmn="curve-last"></span>
 				</div>
-				<canvas data-dmn="curve" aria-label="منحنی تجمعی نتیجهٔ سیگنال‌های بسته‌شده"></canvas>
+				<canvas data-dmn="curve" aria-label="<?php echo esc_attr( Damoon_Lang::t( 'curve_aria' ) ); ?>"></canvas>
 			</div>
 			<div class="dmn-table-wrap">
 				<table class="dmn-table">
 					<thead>
-						<tr><th>زمان</th><th>نماد</th><th>جهت</th><th>ورود</th><th>حد ضرر</th><th>هدف</th><th>وضعیت</th><th>نتیجه (R)</th></tr>
+						<tr>
+							<?php foreach ( array( 'th_time', 'symbol', 'th_dir', 'th_entry', 'th_stop', 'th_target', 'th_status', 'th_r' ) as $th ) : ?>
+								<th><?php echo esc_html( Damoon_Lang::t( $th ) ); ?></th>
+							<?php endforeach; ?>
+						</tr>
 					</thead>
 					<tbody data-dmn="rows"></tbody>
 				</table>
 			</div>
-			<footer class="dmn-foot"><span class="dmn-warn"><?php echo esc_html( self::DISCLAIMER ); ?></span></footer>
+			<footer class="dmn-foot"><span class="dmn-warn"><?php echo esc_html( Damoon_Lang::t( 'disclaimer' ) ); ?></span></footer>
 		</section>
 		<?php
 		return ob_get_clean();

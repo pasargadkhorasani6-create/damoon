@@ -68,6 +68,12 @@ check( 'file name as proxy is rejected with a message', '' === $bad['pulse_proxy
 $none = Damoon_Admin::sanitize( array_merge( $form, array( 'pulse_sources' => array(), 'pulse_auto' => array() ) ) );
 check( 'unchecking everything is respected', '' === $none['pulse_sources'] && '' === $none['pulse_auto'] );
 
+$geo = Damoon_Admin::sanitize( array_merge( $form, array( 'geo_enabled' => '1', 'geo_map' => "ru: ru, by\nfa: IR\nde: DE\nen: us", 'geo_default' => 'ru' ) ) );
+$geo2 = Damoon_Admin::sanitize( $geo );
+check( 'language map normalized and stable on second pass', "fa: IR\nen: US\nru: RU, BY" === $geo2['geo_map'] && $geo['geo_map'] === $geo2['geo_map'] && 1 === $geo2['geo_enabled'] && 'ru' === $geo2['geo_default'] );
+$geo = Damoon_Admin::sanitize( array_merge( $form, array( 'geo_default' => 'de' ) ) );
+check( 'invalid default language falls back, unchecked geo is off', 'en' === $geo['geo_default'] && 0 === $geo['geo_enabled'] );
+
 check( 'input list helper', array( 'a', 'b' ) === damoon_sig_input_list( 'a, b,' ) && array( 'x' ) === damoon_sig_input_list( array( 'x', '' ) ) );
 
 echo $fails ? "\n{$fails} test(s) failed\n" : "\nall passed\n";

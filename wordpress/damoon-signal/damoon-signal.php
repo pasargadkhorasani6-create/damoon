@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Damoon Signal
  * Description: تولید ستاپ معاملاتی کریپتو (جهت، ورود، حد ضرر، هدف) با موتور قانون‌محور و کارنامهٔ شفاف. فقط آموزشی و معاملهٔ کاغذی.
- * Version: 0.4.3
+ * Version: 0.5.0
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Text Domain: damoon-signal
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DAMOON_SIG_VER', '0.4.3' );
+define( 'DAMOON_SIG_VER', '0.5.0' );
 define( 'DAMOON_SIG_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAMOON_SIG_URL', plugin_dir_url( __FILE__ ) );
 
@@ -61,6 +61,10 @@ function damoon_sig_defaults() {
 		'pulse_auto'       => 'front,robot',
 		// اختیاری: انتخابگر CSS عنصری که نبض بازار در صفحهٔ اصلی بعد از آن قرار بگیرد (مثلاً #scan یا .hero).
 		'pulse_anchor'     => '',
+		// چندزبانه: تشخیص زبان بازدیدکننده از کشور (هدر CDN) یا زبان مرورگر و هدایت به نسخهٔ همان زبان.
+		'geo_enabled'      => 1,
+		'geo_map'          => "fa: IR, AF, TJ\nru: RU, BY, KZ, KG, UZ, AM, AZ, MD\nen: US, GB, CA, AU, DE, TR, AE",
+		'geo_default'      => 'en',
 
 		'delete_data'   => 0,
 	);
@@ -149,6 +153,7 @@ function damoon_sig_can_use( $user_id = null ) {
 	return (bool) apply_filters( 'damoon_sig_can_use', $ok, $user_id );
 }
 
+require_once DAMOON_SIG_DIR . 'includes/lang.php';
 require_once DAMOON_SIG_DIR . 'includes/market.php';
 require_once DAMOON_SIG_DIR . 'includes/engine.php';
 require_once DAMOON_SIG_DIR . 'includes/store.php';
@@ -217,4 +222,5 @@ add_action( 'damoon_sig_closed', array( 'Damoon_Outbox', 'on_closed' ) );
 add_action( 'rest_api_init', array( 'Damoon_Rest', 'register' ) );
 add_action( 'plugins_loaded', array( 'Damoon_Store', 'maybe_install' ) );
 add_action( 'init', array( 'Damoon_UI', 'init' ) );
+add_action( 'init', array( 'Damoon_Lang', 'init' ) );
 add_action( 'init', array( 'Damoon_Admin', 'init' ) );

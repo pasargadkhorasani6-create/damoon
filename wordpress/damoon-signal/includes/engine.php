@@ -51,7 +51,7 @@ class Damoon_Engine {
 		);
 
 		if ( $n < self::MIN_BARS ) {
-			return self::reject( $out, 'no_data', 'دادهٔ کافی برای تحلیل این نماد در دسترس نیست.' );
+			return self::reject( $out, 'no_data' );
 		}
 
 		// تغییر ۲۴ ساعته روی کندل‌های بسته‌شده.
@@ -74,7 +74,7 @@ class Damoon_Engine {
 		$price = $c[ $i ];
 		$a     = $atr[ $i ];
 		if ( ! $a || $a <= 0 || $price <= 0 || null === $ema50[ $i - 10 ] ) {
-			return self::reject( $out, 'no_data', 'محاسبهٔ اندیکاتورها ممکن نشد.' );
+			return self::reject( $out, 'no_indicators' );
 		}
 
 		// رژیم نوسان: ATR٪ فعلی نسبت به میانهٔ ۱۰۰ کندل اخیر.
@@ -130,15 +130,7 @@ class Damoon_Engine {
 		}
 
 		if ( null === $dir ) {
-			return self::reject(
-				$out,
-				'no_setup',
-				sprintf(
-					'در حال حاضر هیچ‌کدام از الگوها برقرار نیست. فاصله از EMA20 برابر %s ATR و RSI روی %s است.',
-					number_format( $stretch, 2 ),
-					number_format( $r, 1 )
-				)
-			);
+			return self::reject( $out, 'no_setup', array( number_format( $stretch, 2 ), number_format( $r, 1 ) ) );
 		}
 
 		// Playbook: بازگشت به میانگین خلاف روند اصلی در نوسان بالا مجاز نیست.
@@ -147,11 +139,7 @@ class Damoon_Engine {
 		$major = abs( $gap ) > 2 * $a ? ( $gap > 0 ? 'up' : 'down' ) : 'range';
 		$counter = ( 'long' === $dir && 'down' === $major ) || ( 'short' === $dir && 'up' === $major );
 		if ( 'mean_reversion' === $strategy && 'high_vol' === $regime && $counter ) {
-			return self::reject(
-				$out,
-				'wrong_playbook',
-				'قیمت از میانگین فاصله گرفته، اما معاملهٔ خلاف روند اصلی در نوسان بالا طبق قواعد مجاز نیست.'
-			);
+			return self::reject( $out, 'wrong_playbook' );
 		}
 
 		$risk   = $a * (float) damoon_sig_opt( 'atr_stop_mult' );
@@ -162,7 +150,7 @@ class Damoon_Engine {
 		$rpct   = $risk / $price * 100;
 
 		if ( $stop <= 0 || $target <= 0 || $rpct < 0.1 || $rpct > 8 ) {
-			return self::reject( $out, 'risk_out_of_range', 'فاصلهٔ حد ضرر خارج از محدودهٔ مجاز است؛ ستاپ صادر نشد.' );
+			return self::reject( $out, 'risk_out_of_range' );
 		}
 
 		$out['setup'] = array(
@@ -174,39 +162,51 @@ class Damoon_Engine {
 			'rr'        => $rr,
 			'risk_pct'  => round( $rpct, 2 ),
 		);
-		$out['thesis'] = self::thesis( $strategy, $dir, $out );
+		$out['thesis'] = self::thesis( $out, 'fa' );
 		return $out;
 	}
 
-	private static function reject( array $out, $code, $text ) {
+	/** متن دلیل رد به فارسی ذخیره می‌شود (تلگرام و مدیریت)؛ localize() آن را به زبان بازدیدکننده برمی‌گرداند. */
+	private static function reject( array $out, $code, array $args = array() ) {
 		$out['reason'] = array(
 			'code' => $code,
-			'text' => $text,
+			'args' => $args,
+			'text' => Damoon_Lang::tl( 'fa', 'reason_' . $code, ...$args ),
 		);
 		return $out;
 	}
 
-	private static function thesis( $strategy, $dir, array $o ) {
-		$regimes = array(
-			'high_vol' => 'بالا',
-			'normal'   => 'عادی',
-			'low_vol'  => 'پایین',
-		);
-		$ind     = $o['indicators'];
-		$tail    = sprintf( ' نوسان بازار: %s (ATR برابر %s٪ قیمت).', $regimes[ $o['regime'] ], number_format( $ind['atr_pct'], 2 ) );
+	/** متن‌های تحلیل را به زبان داده‌شده بازنویسی می‌کند (پاسخ REST). */
+	public static function localize( array $a, $lang ) {
+		if ( ! empty( $a['reason']['code'] ) ) {
+			$a['reason']['text'] = Damoon_Lang::tl( $lang, 'reason_' . $a['reason']['code'], ...( $a['reason']['args'] ?? array() ) );
+		}
+		if ( ! empty( $a['setup'] ) ) {
+			$a['thesis'] = self::thesis( $a, $lang );
+		}
+		return $a;
+	}
 
-		if ( 'mean_reversion' === $strategy ) {
-			return sprintf(
-				'بازگشت به میانگین: قیمت به اندازهٔ %s برابر ATR %s از EMA20 قرار گرفته و RSI روی %s است. انتظار می‌رود قیمت به سمت میانگین برگردد.',
+	private static function thesis( array $o, $lang ) {
+		$s    = $o['setup'];
+		$dir  = $s['direction'];
+		$ind  = $o['indicators'];
+		$tail = Damoon_Lang::tl( $lang, 'thesis_tail', Damoon_Lang::tl( $lang, 'vol_' . $o['regime'] ), number_format( $ind['atr_pct'], 2 ) );
+
+		if ( 'mean_reversion' === $s['strategy'] ) {
+			return Damoon_Lang::tl(
+				$lang,
+				'thesis_mr',
 				number_format( abs( $ind['stretch'] ), 2 ),
-				'short' === $dir ? 'بالاتر' : 'پایین‌تر',
+				Damoon_Lang::tl( $lang, 'short' === $dir ? 'mr_above' : 'mr_below' ),
 				number_format( $ind['rsi'], 1 )
 			) . $tail;
 		}
-		return sprintf(
-			'ادامهٔ روند: روند %s است (EMA20 %s EMA50) و قیمت به نزدیکی EMA20 برگشته است. RSI روی %s قرار دارد.',
-			'long' === $dir ? 'صعودی' : 'نزولی',
-			'long' === $dir ? 'بالای' : 'زیر',
+		return Damoon_Lang::tl(
+			$lang,
+			'thesis_tp',
+			Damoon_Lang::tl( $lang, 'long' === $dir ? 'trend_up' : 'trend_down' ),
+			Damoon_Lang::tl( $lang, 'long' === $dir ? 'ema_above' : 'ema_below' ),
 			number_format( $ind['rsi'], 1 )
 		) . $tail;
 	}

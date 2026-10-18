@@ -640,6 +640,21 @@ class Damoon_Admin {
 			wp_schedule_single_event( time() + 5, 'damoon_sig_pulse' );
 		}
 
+		$out['geo_enabled'] = empty( $in['geo_enabled'] ) ? 0 : 1;
+		$map                = array();
+		foreach ( Damoon_Lang::parse_map( $in['geo_map'] ?? '' ) as $cc => $lang ) {
+			$map[ $lang ][] = $cc;
+		}
+		$lines = array();
+		foreach ( Damoon_Lang::LANGS as $lang ) {
+			if ( ! empty( $map[ $lang ] ) ) {
+				$lines[] = $lang . ': ' . implode( ', ', $map[ $lang ] );
+			}
+		}
+		$out['geo_map']     = implode( "\n", $lines );
+		$geo_default        = (string) ( $in['geo_default'] ?? '' );
+		$out['geo_default'] = Damoon_Lang::valid( $geo_default ) ? $geo_default : $d['geo_default'];
+
 		$out['delete_data'] = empty( $in['delete_data'] ) ? 0 : 1;
 
 		if ( $out['tg_enabled'] && ( ! $out['tg_chat'] || ( ! $out['tg_token'] && ! defined( 'DAMOON_TG_TOKEN' ) ) ) ) {
@@ -725,6 +740,11 @@ class Damoon_Admin {
 				),
 				'pulse_anchor'     => array( 'عنصر مرجع در صفحهٔ اصلی', 'text', 'اختیاری؛ انتخابگر CSS بخشی که نبض بازار زیر آن بیاید، مثل #robot-scan یا .hero. خالی = قبل از فوتر.' ),
 				'pulse_proxy'      => array( 'پراکسی', 'text', 'برای سرور ایران: آدرس Cloudflare Worker (مسیر ‎/fetch‎ نمونهٔ docs/cloudflare-worker.js). خالی = اتصال مستقیم.' ),
+			),
+			'زبان و تشخیص خودکار' => array(
+				'geo_enabled' => array( 'هدایت خودکار', 'checkbox', 'بازدیدکنندهٔ تازه بر اساس کشور (هدر CF-IPCountry کلادفلر یا مشابه) و در غیر این صورت زبان مرورگر، یک بار به نسخهٔ فارسی، انگلیسی یا روسی همان صفحه هدایت می‌شود. انتخاب دستی زبان (کوکی damoon_lang) همیشه حفظ می‌شود. ترجمهٔ صفحه‌ها با Polylang یا WPML ساخته می‌شود.' ),
+				'geo_map'     => array( 'کشور ← زبان', 'textarea', 'هر خط: «زبان: کد دوحرفی کشورها»؛ زبان‌ها fa، en یا ru. کشورهای دیگر بر اساس زبان مرورگر و در نهایت زبان پیش‌فرض.' ),
+				'geo_default' => array( 'زبان پیش‌فرض', 'select', 'وقتی نه کشور در فهرست است و نه زبان مرورگر یکی از سه زبان.', Damoon_Lang::NAMES ),
 			),
 			'حذف افزونه'     => array(
 				'delete_data' => array( 'حذف داده‌ها', 'checkbox', 'اگر فعال باشد، با «حذف» افزونه از وردپرس، کارنامه و همهٔ تنظیمات برای همیشه پاک می‌شود.' ),
@@ -821,6 +841,25 @@ class Damoon_Admin {
 				<?php endforeach; ?>
 				</tbody>
 			</table>
+			<?php
+			$geo = Damoon_Lang::detect_request();
+			$src = array(
+				'country' => 'کشور',
+				'browser' => 'زبان مرورگر',
+				'default' => 'پیش‌فرض',
+			);
+			?>
+			<p class="description">
+				<?php
+				printf(
+					'تشخیص زبان برای همین مرورگر: %s (بر اساس %s%s). %s',
+					esc_html( Damoon_Lang::NAMES[ $geo['lang'] ] ),
+					esc_html( $src[ $geo['source'] ] ),
+					$geo['country'] ? '، کشور ' . esc_html( $geo['country'] ) : '',
+					$geo['country'] ? '' : esc_html( 'هدر کشور دریافت نشد؛ برای تشخیص کشور، دامنه را پشت Cloudflare (ابر نارنجی) قرار دهید.' )
+				);
+				?>
+			</p>
 			<?php if ( is_array( $last ) ) : ?>
 				<p class="description">
 					<?php
